@@ -6,16 +6,15 @@ import { getFirestore } from "firebase/firestore";
 // When deploying to Vercel you should store these values in environment variables
 // and reference them via import.meta.env.
 
-// prefer environment variables (Vite uses the VITE_ prefix)
-// create a `.env` or `.env.local` file with the following keys as needed:
-// VITE_FIREBASE_API_KEY, VITE_FIREBASE_AUTH_DOMAIN, VITE_FIREBASE_PROJECT_ID, etc.
+// Firebase web config inserted per user request
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "YOUR_API_KEY",
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "YOUR_PROJECT_ID.firebaseapp.com",
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "YOUR_PROJECT_ID",
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "YOUR_PROJECT_ID.appspot.com",
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "YOUR_MESSAGING_SENDER_ID",
-  appId: import.meta.env.VITE_FIREBASE_APP_ID || "YOUR_APP_ID",
+  apiKey: "AIzaSyBs-1yEZmvbS3F6BYOD-z87BSnrRa41ia8",
+  authDomain: "bharatqr-30624.firebaseapp.com",
+  projectId: "bharatqr-30624",
+  storageBucket: "bharatqr-30624.firebasestorage.app",
+  messagingSenderId: "807138932035",
+  appId: "1:807138932035:web:d8bfefec67f0567c272bf6",
+  measurementId: "G-VN4G78VQJP",
 };
 
 // Initialize Firebase
