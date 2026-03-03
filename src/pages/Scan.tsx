@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ScanLine, Flashlight, ArrowLeft, AlertCircle } from "lucide-react";
 import Header from "@/components/Header";
-import { subscribeCitizens, addCitizen } from "@/lib/dataService";
+import { subscribeCitizens, addCitizen, getCitizen } from "@/lib/dataService";
 
 const Scan = () => {
   const navigate = useNavigate();
@@ -53,9 +53,53 @@ const Scan = () => {
     };
   }, []);
 
-  const simulateScan = (id: string) => {
+  const speak = (text: string) => {
+    // built‑in browser TTS – works offline and doesn't require keys
+    if (typeof window !== "undefined" && "speechSynthesis" in window) {
+      const utter = new SpeechSynthesisUtterance(text);
+      // choose locale/voice; hi-IN for Hindi or en-IN for English
+      utter.lang = "hi-IN";
+      utter.volume = 1; // loudness (0–1)
+      window.speechSynthesis.speak(utter);
+    }
+    // 📌 If you'd like to use Bhāṣini AI for more natural voices:
+    //   fetch("https://api.bhasini.ai/tts", {
+    //     method: "POST",
+    //     headers: {
+    //       "Authorization": `Bearer ${import.meta.env.VITE_BHASINI_KEY}`,
+    //       "Content-Type": "application/json",
+    //     },
+    //     body: JSON.stringify({
+    //       text,
+    //       language: "hi-IN",
+    //       voice: "alloy",
+    //     }),
+    //   })
+    //     .then((r) => r.blob())
+    //     .then((blob) => {
+    //       const url = URL.createObjectURL(blob);
+    //       const audio = new Audio(url);
+    //       audio.volume = 1;
+    //       audio.play();
+    //     });
+  };
+
+  const simulateScan = async (id: string) => {
     setScanning(true);
     setError(false);
+
+    // optionally fetch citizen details and speak name
+    try {
+      const citizen = await getCitizen(id);
+      if (citizen) {
+        speak(`${citizen.name} की पहचान सफल रही।`);
+      } else {
+        speak("ग्राहक नहीं मिला");
+      }
+    } catch (err) {
+      console.error(err);
+    }
+
     setTimeout(() => {
       navigate(`/dashboard/${id}`);
     }, 1500);

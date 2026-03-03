@@ -152,8 +152,23 @@ If data still won't load:
 2. **[src/pages/Scan.tsx](src/pages/Scan.tsx)**
    - Added fallback demo data
    - Automatic seeding trigger
-   - Fallback QR IDs if import fails
+   - Fallback QR IDs if import fails   - Built‑in text‑to‑speech on scan with Web Speech API
+   - Comments showing how to integrate Bhāṣini AI TTS
 
+---
+
+## Optional: Bhāṣini AI Text-to-Speech Integration
+
+To make the scanner announce customer details using Bhāṣini's voice models:
+
+1. Sign up for Bhāṣini (or another TTS provider) and obtain an API key.
+2. Add the key to your Vercel environment variables as `VITE_BHASINI_KEY`.
+3. In `src/pages/Scan.tsx`, the `speak()` helper includes commented example code showing
+   how to call the Bhāṣini REST endpoint and play the resulting audio blob.
+4. After deployment the app will fetch audio from the AI service and play it loudly
+   when a QR code is scanned.
+
+> Note: you can also use the browser’s native `speechSynthesis` API for offline support.
 ---
 
 ## Next Steps
