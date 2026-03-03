@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ScanLine, Flashlight, ArrowLeft, AlertCircle } from "lucide-react";
 import Header from "@/components/Header";
-import { subscribeCitizens } from "@/lib/dataService";
+import { subscribeCitizens, addCitizen } from "@/lib/dataService";
 
 const Scan = () => {
   const navigate = useNavigate();
@@ -12,11 +12,45 @@ const Scan = () => {
   const [qrIds, setQrIds] = useState<string[]>([]);
 
   useEffect(() => {
-    // subscribe to Firestore list and extract ids
-    const unsub = subscribeCitizens((list) => {
-      setQrIds(list.map((c) => c.qrId));
-    });
-    return () => unsub();
+    let isMounted = true;
+    let loadAttempts = 0;
+    const maxRetries = 3;
+    
+    const loadCitizens = () => {
+      const unsub = subscribeCitizens((list) => {
+        if (isMounted) {
+          if (list.length === 0 && loadAttempts < maxRetries) {
+            // If no data and retries left, seed sample data
+            loadAttempts++;
+            import("@/data/sampleData").then(({ sampleCitizens }) => {
+              if (isMounted) {
+                setQrIds(sampleCitizens.map((c) => c.qrId));
+                // Try to add them to Firestore if not already there
+                sampleCitizens.forEach((c) => {
+                  addCitizen(c).catch(() => {
+                    // Silently fail if already exists
+                  });
+                });
+              }
+            }).catch(() => {
+              // Fallback: show demo IDs even if import fails
+              if (isMounted) {
+                setQrIds(["BQR_IND_001", "BQR_IND_002", "BQR_IND_003"]);
+              }
+            });
+          } else {
+            setQrIds(list.map((c) => c.qrId));
+          }
+        }
+      });
+      return unsub;
+    };
+    
+    const unsub = loadCitizens();
+    return () => {
+      isMounted = false;
+      unsub();
+    };
   }, []);
 
   const simulateScan = (id: string) => {

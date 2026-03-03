@@ -49,18 +49,31 @@ const AdminDashboard = () => {
     }
 
     // subscribe to firestore citizen list and optionally seed sample data
+    let isFirstLoad = true;
     const unsub = subscribeCitizens((list) => {
       setCitizensList(list);
-      // if collection is empty and we haven't seeded yet, populate it
-      if (list.length === 0 && !localStorage.getItem("seeded")) {
+      
+      // if collection is empty on first load, populate it with sample data
+      if (isFirstLoad && list.length === 0) {
+        isFirstLoad = false;
         import("@/data/sampleData").then(({ sampleCitizens }) => {
-          sampleCitizens.forEach((c) => addCitizen(c));
-          localStorage.setItem("seeded", "true");
-          toast.success("Sample data loaded into database");
+          Promise.all(sampleCitizens.map((c) => addCitizen(c)))
+            .then(() => {
+              toast.success("Sample data loaded successfully!");
+            })
+            .catch((err) => {
+              console.error("Error seeding data:", err);
+              toast.error("Error loading sample data");
+            });
+        }).catch((err) => {
+          console.error("Error importing sample data:", err);
         });
       }
     });
-    return () => unsub();
+    return () => {
+      unsub();
+      isFirstLoad = false;
+    };
   }, [navigate]);
 
   const handleLogout = () => {
