@@ -48,17 +48,21 @@ const AdminDashboard = () => {
       setIsAuthenticated(true);
     }
 
-    // subscribe to firestore citizen list and optionally seed sample data
+    // subscribe to firestore citizen list
     let isFirstLoad = true;
     const unsub = subscribeCitizens((list) => {
+      console.log("Citizens data received:", list.length, "customers");
       setCitizensList(list);
       
-      // if collection is empty on first load, populate it with sample data
+      // Auto-seed on first load if collection is empty
       if (isFirstLoad && list.length === 0) {
         isFirstLoad = false;
+        console.log("Collection empty on first load, auto-seeding...");
         import("@/data/sampleData").then(({ sampleCitizens }) => {
+          console.log("Adding", sampleCitizens.length, "sample citizens...");
           Promise.all(sampleCitizens.map((c) => addCitizen(c)))
             .then(() => {
+              console.log("Sample data seeded successfully");
               toast.success("Sample data loaded successfully!");
             })
             .catch((err) => {
@@ -68,6 +72,9 @@ const AdminDashboard = () => {
         }).catch((err) => {
           console.error("Error importing sample data:", err);
         });
+      } else if (isFirstLoad && list.length > 0) {
+        isFirstLoad = false;
+        console.log("Using existing data:", list.length, "customers found");
       }
     });
     return () => {
@@ -94,6 +101,17 @@ const AdminDashboard = () => {
   const generateQRId = () => {
     const maxId = Math.max(...citizensList.map((c) => parseInt(c.qrId.split("_")[2])), 0);
     return `BQR_IND_${String(maxId + 1).padStart(3, "0")}`;
+  };
+
+  const handleLoadSampleData = async () => {
+    try {
+      const { sampleCitizens } = await import("@/data/sampleData");
+      await Promise.all(sampleCitizens.map((c) => addCitizen(c)));
+      toast.success(`${sampleCitizens.length} sample customers loaded successfully!`);
+    } catch (err) {
+      console.error("Error loading sample data:", err);
+      toast.error("Failed to load sample data");
+    }
   };
 
 const handleAddCitizen = async (e: React.FormEvent) => {
@@ -319,7 +337,7 @@ const handleAddCitizen = async (e: React.FormEvent) => {
         </div>
 
         {/* Add Button */}
-        <div className="mb-8">
+        <div className="mb-8 flex gap-3 flex-wrap">
           <Button
             onClick={() => setShowForm(!showForm)}
             className="flex items-center gap-2 bg-secondary hover:bg-secondary/80"
@@ -327,6 +345,15 @@ const handleAddCitizen = async (e: React.FormEvent) => {
             <Plus className="h-5 w-5" />
             Add New Customer
           </Button>
+          {citizensList.length === 0 && (
+            <Button
+              onClick={handleLoadSampleData}
+              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700"
+            >
+              <Plus className="h-5 w-5" />
+              Load Sample Data
+            </Button>
+          )}
         </div>
 
         {/* Customers List */}
