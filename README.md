@@ -1,73 +1,53 @@
-# Welcome to your BHARATQR project
+🇮🇳 BharatQR Hub - Unlocking Digital India
+BharatQR is an assisted-digital access platform designed to bridge the gap for India's next billion users. By transforming a simple physical QR card into a gateway for essential services, we empower elderly and illiterate citizens to access their digital identity with dignity and ease.
 
-## Project info
+🌐 Live Demo
+URL: https://bharatqr-hub.vercel.app
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+🚀 Key Features
+Action-First Landing: A massive, high-contrast "Scan" button designed for zero-literacy navigation.
 
-## How can I edit this code?
+Intelligent Dashboard: Automatically fetches and displays Aadhaar, ABHA Health Records, and DigiLocker documents.
 
-There are several ways of editing your application.
+Proactive Bill Alerts: Integrated Bharat BillPay (BBPS) logic that highlights red "Action Required" cards for low balances or pending bills.
 
-**Use Lovable**
+Regional AI Voice: (Simulated) Integration with Bhashini AI to provide real-time audio summaries in local languages.
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+Admin Control: A secure portal for operators to manage citizen records with real-time Firestore synchronization.
 
-Changes made via Lovable will be committed automatically to this repo.
+🛠️ Technology Stack
+Frontend: React.js with Vite.
 
-**Use your preferred IDE**
+Styling: Tailwind CSS & shadcn/ui for a clean, "Government Portal" aesthetic.
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+Database: Firebase Firestore for real-time data persistence and seeding.
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+Deployment: Vercel with custom SPA routing configuration (vercel.json).
 
-Follow these steps:
+Icons/Assets: Lucide-react for high-visibility symbolic navigation.
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
+💻 Local Development
+If you want to run this project locally on your machine:
+
+Clone the repo:
+
+Bash
 git clone <YOUR_GIT_URL>
+cd bharatqr-hub
+Install dependencies:
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+Bash
+npm install
+Set up Firebase:
+Create a .env file and add your Firebase configuration keys (refer to src/lib/firebase.ts).
 
-# Step 3: Install the necessary dependencies.
-npm i
+Start the server:
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
+Bash
 npm run dev
-```
+📦 Deployment Info
+This project is optimized for Vercel. To ensure routing works for the /scan and /admin pages, the vercel.json file is configured to rewrite all requests to index.html.
 
-**Edit a file directly in GitHub**
+Build Command: npm run build
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
-
-**Use GitHub Codespaces**
-
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
-
-## What technologies are used for this project?
-
-This project is built with:
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+Output Directory: dist
