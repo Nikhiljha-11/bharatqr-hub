@@ -14,6 +14,7 @@ export const sampleCitizens: CitizenModel[] = [
     state: "Uttar Pradesh",
     abhaId: "14-2567-8901-2345",
     balance: 47,
+    utilityBalances: { electricity: 60, water: 120, gas: 210 },
     bills: [
       { type: "electricity", label: "Electricity Bill", amount: 200, dueDate: "2026-03-10", icon: "Lightbulb" },
       { type: "water", label: "Water Bill", amount: 85, dueDate: "2026-03-15", icon: "Droplets" },
@@ -45,6 +46,7 @@ export const sampleCitizens: CitizenModel[] = [
     state: "Rajasthan",
     abhaId: "14-8901-2345-6789",
     balance: 2340,
+    utilityBalances: { electricity: 340, water: 280, gas: 190 },
     bills: [],
     documents: [
       { name: "Aadhaar Card", type: "Identity", issued: "2017-06-10" },
@@ -70,6 +72,7 @@ export const sampleCitizens: CitizenModel[] = [
     state: "Karnataka",
     abhaId: "14-3456-7890-1234",
     balance: 156,
+    utilityBalances: { electricity: 95, water: 180, gas: 70 },
     bills: [
       { type: "gas", label: "Gas Bill", amount: 450, dueDate: "2026-03-20", icon: "Flame" },
     ],
@@ -100,6 +103,7 @@ export const sampleCitizens: CitizenModel[] = [
     state: "Madhya Pradesh",
     abhaId: "14-4567-8901-2345",
     balance: 5600,
+    utilityBalances: { electricity: 540, water: 450, gas: 320 },
     bills: [
       { type: "electricity", label: "Electricity Bill", amount: 320, dueDate: "2026-03-12", icon: "Lightbulb" },
       { type: "mobile", label: "Mobile Bill", amount: 599, dueDate: "2026-03-25", icon: "Phone" },
@@ -129,6 +133,7 @@ export const sampleCitizens: CitizenModel[] = [
     state: "Delhi",
     abhaId: "14-5678-9012-3456",
     balance: 8900,
+    utilityBalances: { electricity: 410, water: 390, gas: 280 },
     bills: [],
     documents: [
       { name: "Aadhaar Card", type: "Identity", issued: "2019-01-20" },
@@ -157,6 +162,7 @@ export const sampleCitizens: CitizenModel[] = [
     state: "Tamil Nadu",
     abhaId: "14-6789-0123-4567",
     balance: 3400,
+    utilityBalances: { electricity: 130, water: 80, gas: 210 },
     bills: [
       { type: "water", label: "Water Bill", amount: 150, dueDate: "2026-03-18", icon: "Droplets" },
     ],
@@ -184,6 +190,7 @@ export const sampleCitizens: CitizenModel[] = [
     state: "Uttar Pradesh",
     abhaId: "14-7890-1234-5678",
     balance: 1200,
+    utilityBalances: { electricity: 45, water: 110, gas: 130 },
     bills: [
       { type: "electricity", label: "Electricity Bill", amount: 450, dueDate: "2026-03-08", icon: "Lightbulb" },
       { type: "gas", label: "Gas Bill", amount: 350, dueDate: "2026-03-22", icon: "Flame" },
@@ -213,6 +220,7 @@ export const sampleCitizens: CitizenModel[] = [
     state: "Gujarat",
     abhaId: "14-8901-2345-6789",
     balance: 7200,
+    utilityBalances: { electricity: 620, water: 360, gas: 400 },
     bills: [
       { type: "mobile", label: "Mobile Bill", amount: 499, dueDate: "2026-03-28", icon: "Phone" },
     ],

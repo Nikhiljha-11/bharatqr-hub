@@ -17,9 +17,13 @@ import {
   updateCitizen,
 } from "@/lib/dataService";
 
+const ADMIN_SECONDARY_PIN = "1234";
+
 const AdminDashboard = () => {
   const navigate = useNavigate();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isPinVerified, setIsPinVerified] = useState(false);
+  const [secondaryPin, setSecondaryPin] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [selectedCitizen, setSelectedCitizen] = useState<CitizenModel | null>(null);
   const [showDetails, setShowDetails] = useState(false);
@@ -42,10 +46,12 @@ const AdminDashboard = () => {
   // Check authentication on mount
   useEffect(() => {
     const adminAuth = localStorage.getItem("adminAuth");
+    const admin2FA = localStorage.getItem("admin2FA");
     if (adminAuth !== "true") {
       navigate("/admin-login");
     } else {
       setIsAuthenticated(true);
+      setIsPinVerified(admin2FA === "true");
     }
 
     // subscribe to firestore citizen list
@@ -85,9 +91,20 @@ const AdminDashboard = () => {
 
   const handleLogout = () => {
     localStorage.removeItem("adminAuth");
+    localStorage.removeItem("admin2FA");
     localStorage.removeItem("adminLoginTime");
     toast.success("Logged out successfully");
     navigate("/");
+  };
+
+  const verifySecondaryPin = () => {
+    if (secondaryPin === ADMIN_SECONDARY_PIN) {
+      localStorage.setItem("admin2FA", "true");
+      setIsPinVerified(true);
+      toast.success("Secondary PIN verified");
+      return;
+    }
+    toast.error("Invalid secondary PIN");
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -194,6 +211,30 @@ const handleAddCitizen = async (e: React.FormEvent) => {
 
   if (!isAuthenticated) {
     return null;
+  }
+
+  if (!isPinVerified) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100">
+        <Header />
+        <div className="container mx-auto px-4 py-16 flex items-center justify-center">
+          <Card className="w-full max-w-md p-6 border-2 border-secondary/20">
+            <h2 className="text-xl font-bold text-slate-900 mb-2">Operator Security Check</h2>
+            <p className="text-sm text-slate-600 mb-4">Enter the 4-digit secondary Operator PIN to access Admin Dashboard.</p>
+            <Input
+              value={secondaryPin}
+              onChange={(event) => setSecondaryPin(event.target.value.replace(/\D/g, "").slice(0, 4))}
+              placeholder="Enter 4-digit PIN"
+              inputMode="numeric"
+              maxLength={4}
+              className="mb-4"
+            />
+            <Button onClick={verifySecondaryPin} className="w-full bg-primary hover:bg-primary/80">Verify PIN</Button>
+          </Card>
+        </div>
+        <Footer />
+      </div>
+    );
   }
 
   return (

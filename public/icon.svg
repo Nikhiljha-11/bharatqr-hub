@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="BharatQR icon">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0f172a" />
+      <stop offset="100%" stop-color="#1e293b" />
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#f59e0b" />
+      <stop offset="100%" stop-color="#f97316" />
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="120" fill="url(#bg)" />
+  <rect x="88" y="88" width="336" height="336" rx="60" fill="none" stroke="url(#accent)" stroke-width="28" />
+  <rect x="160" y="160" width="72" height="72" rx="16" fill="#ffffff" />
+  <rect x="280" y="160" width="72" height="72" rx="16" fill="#ffffff" />
+  <rect x="160" y="280" width="72" height="72" rx="16" fill="#ffffff" />
+  <path d="M280 280h72v24h-48v48h-24z" fill="#ffffff" />
+  <circle cx="412" cy="100" r="28" fill="#22c55e" />
+</svg>

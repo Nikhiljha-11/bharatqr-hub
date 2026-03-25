@@ -1,8 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { ScanLine, Flashlight, ArrowLeft, AlertCircle } from "lucide-react";
+import { ScanLine, Flashlight, ArrowLeft, AlertCircle, Volume2 } from "lucide-react";
 import Header from "@/components/Header";
 import { subscribeCitizens, addCitizen, getCitizen } from "@/lib/dataService";
+import { speakText } from "@/lib/speech";
 
 const Scan = () => {
   const navigate = useNavigate();
@@ -10,6 +11,9 @@ const Scan = () => {
   const [flashOn, setFlashOn] = useState(false);
   const [error, setError] = useState(false);
   const [qrIds, setQrIds] = useState<string[]>([]);
+  const [cameraMessage, setCameraMessage] = useState("Initializing physical scanner...");
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -53,36 +57,86 @@ const Scan = () => {
     };
   }, []);
 
-  const speak = (text: string) => {
-    // built‑in browser TTS – works offline and doesn't require keys
-    if (typeof window !== "undefined" && "speechSynthesis" in window) {
-      const utter = new SpeechSynthesisUtterance(text);
-      // choose locale/voice; hi-IN for Hindi or en-IN for English
-      utter.lang = "hi-IN";
-      utter.volume = 1; // loudness (0–1)
-      window.speechSynthesis.speak(utter);
-    }
-    // 📌 If you'd like to use Bhāṣini AI for more natural voices:
-    //   fetch("https://api.bhasini.ai/tts", {
-    //     method: "POST",
-    //     headers: {
-    //       "Authorization": `Bearer ${import.meta.env.VITE_BHASINI_KEY}`,
-    //       "Content-Type": "application/json",
-    //     },
-    //     body: JSON.stringify({
-    //       text,
-    //       language: "hi-IN",
-    //       voice: "alloy",
-    //     }),
-    //   })
-    //     .then((r) => r.blob())
-    //     .then((blob) => {
-    //       const url = URL.createObjectURL(blob);
-    //       const audio = new Audio(url);
-    //       audio.volume = 1;
-    //       audio.play();
-    //     });
-  };
+  useEffect(() => {
+    let isMounted = true;
+    let intervalId: ReturnType<typeof setInterval> | null = null;
+
+    const setupPhysicalScanner = async () => {
+      const Detector = (window as Window & { BarcodeDetector?: new (opts: { formats: string[] }) => { detect: (el: HTMLVideoElement) => Promise<Array<{ rawValue?: string }>> } }).BarcodeDetector;
+
+      if (!Detector || !navigator.mediaDevices?.getUserMedia) {
+        setCameraMessage("Physical scanner unavailable. Use Simulate Scan.");
+        return;
+      }
+
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: "environment" } },
+          audio: false,
+        });
+
+        if (!isMounted || !videoRef.current) {
+          stream.getTracks().forEach((track) => track.stop());
+          return;
+        }
+
+        streamRef.current = stream;
+        videoRef.current.srcObject = stream;
+        await videoRef.current.play();
+        setCameraMessage("Physical scanner active. Point camera to BharatQR code.");
+
+        const detector = new Detector({ formats: ["qr_code"] });
+        intervalId = setInterval(async () => {
+          if (!videoRef.current || scanning) {
+            return;
+          }
+
+          try {
+            const codes = await detector.detect(videoRef.current);
+            if (!codes.length) {
+              return;
+            }
+
+            const raw = (codes[0].rawValue || "").trim();
+            const isBharatQR = /^BQR_[A-Z]+_\d+$/i.test(raw);
+            const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(raw);
+            if (!isBharatQR && !isUuid) {
+              return;
+            }
+
+            setScanning(true);
+            setError(false);
+
+            const citizen = await getCitizen(raw);
+            if (citizen) {
+              speakText(`${citizen.name} identified successfully.`);
+              navigate(`/citizen/${raw}`);
+              return;
+            }
+
+            setError(true);
+            setScanning(false);
+          } catch {
+            // Ignore transient detector failures.
+          }
+        }, 700);
+      } catch {
+        setCameraMessage("Camera access blocked. Allow camera permission or use Simulate Scan.");
+      }
+    };
+
+    setupPhysicalScanner();
+
+    return () => {
+      isMounted = false;
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((track) => track.stop());
+      }
+    };
+  }, [navigate, scanning]);
 
   const simulateScan = async (id: string) => {
     setScanning(true);
@@ -92,16 +146,16 @@ const Scan = () => {
     try {
       const citizen = await getCitizen(id);
       if (citizen) {
-        speak(`${citizen.name} की पहचान सफल रही।`);
+        speakText(`${citizen.name} identified successfully.`);
       } else {
-        speak("ग्राहक नहीं मिला");
+        speakText("Citizen not found.");
       }
     } catch (err) {
       console.error(err);
     }
 
     setTimeout(() => {
-      navigate(`/dashboard/${id}`);
+      navigate(`/citizen/${id}`);
     }, 1500);
   };
 
@@ -123,6 +177,7 @@ const Scan = () => {
 
         {/* Scanner viewport */}
         <div className="relative w-full max-w-sm aspect-square rounded-2xl bg-primary/5 border-2 border-dashed border-primary/30 flex items-center justify-center mb-8 overflow-hidden">
+          <video ref={videoRef} className="absolute inset-0 h-full w-full object-cover opacity-50" playsInline muted autoPlay />
           {scanning ? (
             <div className="flex flex-col items-center gap-4">
               <div className="h-12 w-12 rounded-full border-4 border-secondary border-t-transparent animate-spin" />
@@ -140,6 +195,7 @@ const Scan = () => {
               <div className="text-center z-10">
                 <ScanLine className="mx-auto h-12 w-12 text-primary/40 mb-2" />
                 <p className="text-sm text-muted-foreground">Position QR code here</p>
+                <p className="text-[11px] text-muted-foreground mt-1">{cameraMessage}</p>
               </div>
             </>
           )}
@@ -164,6 +220,14 @@ const Scan = () => {
               <p className="text-xs text-muted-foreground mt-0.5">This QR code is not registered. Contact a Help Desk near you.</p>
               <button className="mt-2 text-xs font-semibold text-secondary hover:underline">Find Nearest Help Desk →</button>
             </div>
+            <button
+              type="button"
+              className="rounded-md p-1 hover:bg-destructive/20"
+              onClick={() => speakText("Identity not found. Please contact nearest help desk.")}
+              aria-label="Speak identity error"
+            >
+              <Volume2 className="h-4 w-4 text-destructive" />
+            </button>
           </div>
         )}
 

@@ -1,5 +1,6 @@
-import { Lightbulb, Droplets, Flame, Smartphone, CheckCircle2, AlertTriangle } from "lucide-react";
+import { Lightbulb, Droplets, Flame, Smartphone, CheckCircle2, AlertTriangle, Volume2 } from "lucide-react";
 import type { BillItem } from "@/types";
+import { getAlertSpeechSummary, speakText } from "@/lib/speech";
 
 const iconMap: Record<string, typeof Lightbulb> = {
   Lightbulb,
@@ -48,6 +49,17 @@ const SymbolicBillCards = ({ bills, onPayBill }: Props) => {
             <div className="text-right">
               <p className="text-2xl font-bold text-destructive">₹{bill.amount}</p>
               <p className="text-xs font-semibold text-destructive">TAP TO PAY</p>
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  speakText(getAlertSpeechSummary(bill.label, bill.amount, bill.dueDate));
+                }}
+                className="mt-1 rounded-md p-1 hover:bg-destructive/20"
+                aria-label={`Speak ${bill.label} alert`}
+              >
+                <Volume2 className="h-4 w-4 text-destructive" />
+              </button>
             </div>
           </button>
         );

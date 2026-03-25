@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180" role="img" aria-label="BharatQR Apple icon">
+  <rect width="180" height="180" rx="36" fill="#0f172a" />
+  <rect x="32" y="32" width="116" height="116" rx="24" fill="none" stroke="#f97316" stroke-width="10" />
+  <rect x="52" y="52" width="28" height="28" rx="7" fill="#fff" />
+  <rect x="100" y="52" width="28" height="28" rx="7" fill="#fff" />
+  <rect x="52" y="100" width="28" height="28" rx="7" fill="#fff" />
+  <path d="M100 100h28v10h-18v18h-10z" fill="#fff" />
+</svg>

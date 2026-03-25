@@ -1,14 +1,17 @@
 import { useState } from "react";
 import { CheckCircle2, X } from "lucide-react";
 import type { BillItem } from "@/types";
+import { markBillPaid } from "@/lib/dataService";
 
 interface Props {
   bill: BillItem;
+  qrId: string;
   onClose: () => void;
 }
 
-const PaymentConfirm = ({ bill, onClose }: Props) => {
+const PaymentConfirm = ({ bill, qrId, onClose }: Props) => {
   const [paid, setPaid] = useState(false);
+  const [processing, setProcessing] = useState(false);
 
   if (paid) {
     return (
@@ -40,10 +43,16 @@ const PaymentConfirm = ({ bill, onClose }: Props) => {
         </div>
 
         <button
-          onClick={() => setPaid(true)}
-          className="w-full rounded-xl bg-success py-4 text-lg font-bold text-success-foreground shadow-lg hover:brightness-110 active:scale-95 transition-all"
+          onClick={async () => {
+            setProcessing(true);
+            await markBillPaid(qrId, bill.label);
+            setPaid(true);
+            setProcessing(false);
+          }}
+          disabled={processing}
+          className="w-full rounded-xl bg-success py-4 text-lg font-bold text-success-foreground shadow-lg hover:brightness-110 active:scale-95 transition-all disabled:opacity-70"
         >
-          ✓ Pay Now
+          {processing ? "Processing..." : "✓ Pay Now"}
         </button>
       </div>
     </div>

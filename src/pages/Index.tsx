@@ -20,6 +20,10 @@ const Index = () => {
     return () => clearInterval(t);
   }, []);
 
+  useEffect(() => {
+    localStorage.setItem("bqr_lang", languages[activeLang].code);
+  }, [activeLang]);
+
   return (
     <div className="min-h-screen flex flex-col bg-background relative overflow-hidden">
       {/* Background dot pattern */}

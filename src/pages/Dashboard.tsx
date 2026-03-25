@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import {
   User, ShieldCheck, Heart, FileText,
   ArrowLeft, Pill, AlertTriangle,
-  Download, Eye, CreditCard, Landmark
+  Download, Eye, CreditCard, Landmark, Volume2, Fingerprint
 } from "lucide-react";
 import Header from "@/components/Header";
 import AIVoiceModal from "@/components/AIVoiceModal";
@@ -12,7 +12,13 @@ import PaymentConfirm from "@/components/PaymentConfirm";
 import QRCodeDisplay from "@/components/QRCodeDisplay";
 import { getBhashiniGreeting } from "@/data/mockData";
 import type { CitizenModel, BillItem } from "@/types";
-import { getCitizen } from "@/lib/dataService";
+import { subscribeCitizen } from "@/lib/dataService";
+import { getAlertSpeechSummary, speakText } from "@/lib/speech";
+
+const maskSensitive = (value: string) => {
+  const suffix = value.slice(-4);
+  return `XXXX-XXXX-${suffix}`;
+};
 
 const Dashboard = () => {
   const { qrId } = useParams<{ qrId: string }>();
@@ -21,6 +27,8 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [showAI, setShowAI] = useState(false);
   const [payingBill, setPayingBill] = useState<BillItem | null>(null);
+  const [revealed, setRevealed] = useState({ aadhaar: false, abha: false });
+  const [verifyingField, setVerifyingField] = useState<"aadhaar" | "abha" | null>(null);
 
   useEffect(() => {
     if (!qrId) {
@@ -28,12 +36,15 @@ const Dashboard = () => {
       return;
     }
     setLoading(true);
-    (async () => {
-      const c = await getCitizen(qrId);
+    const unsub = subscribeCitizen(qrId, (c) => {
       setCitizen(c);
       setLoading(false);
-      if (c) setShowAI(true);
-    })();
+      if (c) {
+        setShowAI((prev) => prev || true);
+      }
+    });
+
+    return () => unsub();
   }, [qrId]);
 
   if (loading) {
@@ -66,7 +77,20 @@ const Dashboard = () => {
     );
   }
 
-  const lowBalance = citizen.balance < 100;
+  const requestReveal = (field: "aadhaar" | "abha") => {
+    setVerifyingField(field);
+    setTimeout(() => {
+      setRevealed((prev) => ({ ...prev, [field]: true }));
+      setVerifyingField(null);
+    }, 1800);
+  };
+
+  const pendingBills = citizen.bills.filter(
+    (bill) => (bill.status || citizen.billStatus?.[bill.label] || "Pending") !== "Paid",
+  );
+
+  const utilityBalances = citizen.utilityBalances || { electricity: 0, water: 0, gas: 0 };
+  const lowElectricity = utilityBalances.electricity < 100;
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -89,7 +113,7 @@ const Dashboard = () => {
                 <span className="text-xs font-medium text-success bg-success/10 rounded-full px-2 py-0.5">Verified</span>
               </div>
               <p className="text-sm text-muted-foreground">{citizen.nameHindi}</p>
-              <p className="text-sm text-muted-foreground mt-1">Aadhaar: {citizen.aadhaar} · {citizen.village}, {citizen.district}, {citizen.state}</p>
+              <p className="text-sm text-muted-foreground mt-1">Aadhaar: {revealed.aadhaar ? citizen.aadhaar : maskSensitive(citizen.aadhaar)} · {citizen.village}, {citizen.district}, {citizen.state}</p>
             </div>
           </div>
         </div>
@@ -101,7 +125,7 @@ const Dashboard = () => {
 
         {/* Symbolic Bill Cards — shown first if bills exist */}
         <div className="mb-6">
-          <SymbolicBillCards bills={citizen.bills} onPayBill={(bill) => setPayingBill(bill)} />
+          <SymbolicBillCards bills={pendingBills} onPayBill={(bill) => setPayingBill(bill)} />
         </div>
 
         {/* Service tiles */}
@@ -113,7 +137,22 @@ const Dashboard = () => {
               <h3 className="section-title">Identity</h3>
             </div>
             <div className="space-y-2 text-sm">
-              <div className="flex justify-between"><span className="text-muted-foreground">Aadhaar</span><span className="font-medium text-foreground">{citizen.aadhaar}</span></div>
+              <div className="flex justify-between items-center">
+                <span className="text-muted-foreground">Aadhaar</span>
+                <span className="flex items-center gap-2 font-medium text-foreground">
+                  {revealed.aadhaar ? citizen.aadhaar : maskSensitive(citizen.aadhaar)}
+                  {!revealed.aadhaar && (
+                    <button
+                      type="button"
+                      onClick={() => requestReveal("aadhaar")}
+                      className="rounded-md px-2 py-1 text-[10px] border border-border hover:bg-accent"
+                      aria-label="Verify biometric for Aadhaar"
+                    >
+                      Verify Biometric
+                    </button>
+                  )}
+                </span>
+              </div>
               <div className="flex justify-between"><span className="text-muted-foreground">Voter ID</span><span className="font-medium text-foreground">{citizen.voterId}</span></div>
               <div className="flex justify-between"><span className="text-muted-foreground">Phone</span><span className="font-medium text-foreground">{citizen.phone}</span></div>
             </div>
@@ -125,7 +164,19 @@ const Dashboard = () => {
               <Heart className="h-5 w-5 text-destructive" />
               <h3 className="section-title">Health (ABHA)</h3>
             </div>
-            <p className="text-xs text-muted-foreground mb-3">ABHA ID: {citizen.abhaId}</p>
+            <p className="text-xs text-muted-foreground mb-3 flex items-center gap-2">
+              ABHA ID: {revealed.abha ? citizen.abhaId : maskSensitive(citizen.abhaId)}
+              {!revealed.abha && (
+                <button
+                  type="button"
+                  onClick={() => requestReveal("abha")}
+                  className="rounded-md px-2 py-1 text-[10px] border border-border hover:bg-accent"
+                  aria-label="Verify biometric for ABHA"
+                >
+                  Verify Biometric
+                </button>
+              )}
+            </p>
             <div className="space-y-2">
               {citizen.healthRecords.map((r, i) => (
                 <div key={i} className="rounded-lg bg-muted/50 p-2 text-sm">
@@ -145,26 +196,50 @@ const Dashboard = () => {
           </div>
 
           {/* Recharge Hub */}
-          <div className={`card-gov p-5 animate-fade-up ${lowBalance ? "border-destructive border-2 shadow-[0_0_20px_hsl(var(--destructive)/0.2)]" : ""}`} style={{ animationDelay: "0.2s" }}>
+          <div className={`card-gov p-5 animate-fade-up ${lowElectricity ? "border-destructive border-2 shadow-[0_0_20px_hsl(var(--destructive)/0.2)] bg-destructive/5" : "border-success/40 border-2 bg-success/5"}`} style={{ animationDelay: "0.2s" }}>
             <div className="flex items-center gap-2 mb-4">
-              {lowBalance ? (
+              {lowElectricity ? (
                 <AlertTriangle className="h-6 w-6 text-destructive animate-blink-alert" />
               ) : (
-                <Landmark className="h-5 w-5 text-secondary" />
+                <Landmark className="h-5 w-5 text-success" />
               )}
               <h3 className="section-title">Recharge Hub</h3>
-              {lowBalance && (
+              {lowElectricity && (
                 <span className="ml-auto text-xs font-bold text-destructive animate-blink-alert">⚠ LOW BALANCE</span>
               )}
             </div>
-            <div className="flex items-baseline gap-2">
-              <span className="text-3xl font-bold text-foreground">₹{citizen.balance.toLocaleString("en-IN")}</span>
-              <span className="text-sm text-muted-foreground">available balance</span>
+            <div className="space-y-2">
+              <div className="flex items-baseline gap-2">
+                <span className="text-2xl font-bold text-foreground">₹{citizen.balance.toLocaleString("en-IN")}</span>
+                <span className="text-sm text-muted-foreground">main account</span>
+              </div>
+              <div className="grid grid-cols-3 gap-2 text-center">
+                <div className={`rounded-lg p-2 ${lowElectricity ? "bg-destructive/15" : "bg-success/20"}`}>
+                  <p className="text-[10px] text-muted-foreground">Electricity</p>
+                  <p className={`font-bold ${lowElectricity ? "text-destructive" : "text-success"}`}>₹{utilityBalances.electricity}</p>
+                </div>
+                <div className="rounded-lg bg-muted p-2">
+                  <p className="text-[10px] text-muted-foreground">Water</p>
+                  <p className="font-bold text-foreground">₹{utilityBalances.water}</p>
+                </div>
+                <div className="rounded-lg bg-muted p-2">
+                  <p className="text-[10px] text-muted-foreground">Gas</p>
+                  <p className="font-bold text-foreground">₹{utilityBalances.gas}</p>
+                </div>
+              </div>
             </div>
-            {lowBalance && (
+            {lowElectricity && (
               <div className="mt-3 flex items-center gap-2 rounded-lg bg-destructive/10 p-3">
                 <AlertTriangle className="h-4 w-4 text-destructive shrink-0" />
-                <p className="text-xs text-destructive font-medium">Low balance — recharge now</p>
+                <p className="text-xs text-destructive font-medium">Electricity low balance — recharge now</p>
+                <button
+                  type="button"
+                  onClick={() => speakText(getAlertSpeechSummary("Electricity low balance", utilityBalances.electricity, "Today"))}
+                  className="rounded-md p-1.5 hover:bg-destructive/20"
+                  aria-label="Speak low balance alert"
+                >
+                  <Volume2 className="h-4 w-4 text-destructive" />
+                </button>
                 <button className="ml-auto rounded-lg bg-secondary px-4 py-1.5 text-xs font-bold text-secondary-foreground shadow-md hover:brightness-110 hover:scale-105 transition-all">
                   <CreditCard className="inline h-3 w-3 mr-1" />Pay Now
                 </button>
@@ -221,8 +296,22 @@ const Dashboard = () => {
       {payingBill && (
         <PaymentConfirm
           bill={payingBill}
+          qrId={citizen.qrId}
           onClose={() => setPayingBill(null)}
         />
+      )}
+
+      {verifyingField && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/50 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-2xl bg-card p-6 text-center">
+            <Fingerprint className="mx-auto h-12 w-12 text-primary animate-pulse mb-3" />
+            <p className="font-semibold text-foreground">Verify Biometric</p>
+            <p className="text-xs text-muted-foreground mt-1">Scanning fingerprint for secure reveal...</p>
+            <div className="mt-4 h-2 rounded-full bg-muted overflow-hidden">
+              <div className="h-full w-full bg-primary animate-[pulse_1.2s_ease-in-out_infinite]" />
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="BharatQR maskable icon">
+  <defs>
+    <linearGradient id="m-bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#111827" />
+      <stop offset="100%" stop-color="#1f2937" />
+    </linearGradient>
+    <linearGradient id="m-accent" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#fb923c" />
+      <stop offset="100%" stop-color="#ea580c" />
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" fill="url(#m-bg)" />
+  <g transform="translate(64 64)">
+    <rect width="384" height="384" rx="72" fill="none" stroke="url(#m-accent)" stroke-width="30" />
+    <rect x="72" y="72" width="84" height="84" rx="18" fill="#fff" />
+    <rect x="228" y="72" width="84" height="84" rx="18" fill="#fff" />
+    <rect x="72" y="228" width="84" height="84" rx="18" fill="#fff" />
+    <path d="M228 228h84v28h-56v56h-28z" fill="#fff" />
+  </g>
+</svg>
