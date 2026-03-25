@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { Volume2, X } from "lucide-react";
-import { speakText } from "@/lib/speech";
+import { RotateCcw, Square, Volume2, X } from "lucide-react";
+import { getSelectedLanguage, speakText, stopSpeaking } from "@/lib/speech";
 
 interface Props {
   text: string;
@@ -10,8 +10,10 @@ interface Props {
 const AIVoiceModal = ({ text, onClose }: Props) => {
   const [displayed, setDisplayed] = useState("");
   const [done, setDone] = useState(false);
+  const [language, setLanguage] = useState(getSelectedLanguage());
 
   useEffect(() => {
+    setLanguage(getSelectedLanguage());
     speakText(text);
 
     let i = 0;
@@ -24,8 +26,17 @@ const AIVoiceModal = ({ text, onClose }: Props) => {
         clearInterval(interval);
       }
     }, 30);
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      stopSpeaking();
+    };
   }, [text]);
+
+  const handleReplay = () => {
+    speakText(text);
+    setDisplayed("");
+    setDone(false);
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-foreground/40 backdrop-blur-sm" onClick={onClose}>
@@ -38,9 +49,18 @@ const AIVoiceModal = ({ text, onClose }: Props) => {
             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-secondary/20">
               <Volume2 className="h-4 w-4 text-secondary" />
             </div>
-            <span className="text-sm font-semibold text-foreground">Bhashini AI Assistant</span>
+            <div>
+              <span className="text-sm font-semibold text-foreground">Bhashini AI Assistant</span>
+              <p className="text-[11px] text-muted-foreground">Audio language: {language}</p>
+            </div>
           </div>
-          <button onClick={onClose} className="rounded-full p-1 hover:bg-muted transition-colors">
+          <button
+            onClick={() => {
+              stopSpeaking();
+              onClose();
+            }}
+            className="rounded-full p-1 hover:bg-muted transition-colors"
+          >
             <X className="h-5 w-5 text-muted-foreground" />
           </button>
         </div>
@@ -66,6 +86,23 @@ const AIVoiceModal = ({ text, onClose }: Props) => {
           {displayed}
           {!done && <span className="inline-block w-0.5 h-4 bg-secondary ml-0.5 animate-pulse" />}
         </p>
+
+        <div className="mt-4 grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={handleReplay}
+            className="inline-flex items-center justify-center gap-2 rounded-lg border border-border px-3 py-2 text-sm font-medium hover:bg-accent"
+          >
+            <RotateCcw className="h-4 w-4" /> Replay Audio
+          </button>
+          <button
+            type="button"
+            onClick={stopSpeaking}
+            className="inline-flex items-center justify-center gap-2 rounded-lg border border-border px-3 py-2 text-sm font-medium hover:bg-accent"
+          >
+            <Square className="h-4 w-4" /> Stop Audio
+          </button>
+        </div>
 
         {done && (
           <button onClick={onClose} className="mt-4 btn-saffron w-full text-sm">

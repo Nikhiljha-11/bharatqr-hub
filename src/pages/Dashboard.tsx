@@ -431,7 +431,6 @@ const Dashboard = () => {
         aria-label="Open Bhashini voice walkthrough"
         onClick={() => {
           setIsVoiceGuideOpen(true);
-          speakText(voiceGuideText);
         }}
       >
         <Mic className="h-7 w-7 text-secondary-foreground" />

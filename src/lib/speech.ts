@@ -18,12 +18,12 @@ function normalizeLanguage(input: string | null): BharatQrLanguage {
   if (input === "தமிழ்") return "த";
   if (input === "తెలుగు") return "త";
 
-  return "हि";
+  return "EN";
 }
 
 export function getSelectedLanguage(): BharatQrLanguage {
   if (typeof window === "undefined") {
-    return "हि";
+    return "EN";
   }
 
   return normalizeLanguage(localStorage.getItem("bqr_lang"));
@@ -49,6 +49,14 @@ export function speakText(text: string) {
 
   window.speechSynthesis.cancel();
   window.speechSynthesis.speak(utter);
+}
+
+export function stopSpeaking() {
+  if (typeof window === "undefined" || !("speechSynthesis" in window)) {
+    return;
+  }
+
+  window.speechSynthesis.cancel();
 }
 
 export function getAlertSpeechSummary(label: string, amount: number, dueDate: string) {

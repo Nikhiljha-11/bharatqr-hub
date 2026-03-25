@@ -24,7 +24,7 @@ const Header = () => {
   const [lang, setLang] = useState(() => {
     const selected = getSelectedLanguage();
     const idx = languages.findIndex((l) => l.code === selected);
-    return idx >= 0 ? idx : 1;
+    return idx >= 0 ? idx : 0;
   });
   const [menuOpen, setMenuOpen] = useState(false);
   const location = useLocation();
