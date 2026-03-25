@@ -10,10 +10,9 @@ import AIVoiceModal from "@/components/AIVoiceModal";
 import SymbolicBillCards from "@/components/SymbolicBillCards";
 import PaymentConfirm from "@/components/PaymentConfirm";
 import QRCodeDisplay from "@/components/QRCodeDisplay";
-import { getBhashiniGreeting } from "@/data/mockData";
 import type { CitizenModel, BillItem, CitizenDocument } from "@/types";
 import { subscribeCitizen } from "@/lib/dataService";
-import { getAlertSpeechSummary, speakText } from "@/lib/speech";
+import { getAlertSpeechSummary, getSelectedLanguage, speakText } from "@/lib/speech";
 import { toast } from "sonner";
 import { maskIdentifier } from "@/lib/security";
 import { authenticateWithPlatformBiometrics } from "@/lib/webauthn";
@@ -41,11 +40,116 @@ const getDaysRemaining = (amount: number, type: keyof typeof utilityConsumptionP
 };
 
 const buildFirstScanSummary = (bills: BillItem[]) => {
+  const selected = getSelectedLanguage();
   const nextBill = bills[0];
+
+  if (selected === "हि") {
+    if (!nextBill) {
+      return "सब ठीक है। आज कोई लंबित बिल नहीं है।";
+    }
+    return `${nextBill.label} बिल जल्द देय है। कृपया समय पर भुगतान करें।`;
+  }
+
+  if (selected === "த") {
+    if (!nextBill) {
+      return "அனைத்தும் சரி. இன்று நிலுவை பில் இல்லை.";
+    }
+    return `${nextBill.label} கட்டணம் விரைவில் வரவுள்ளது. தயவுசெய்து நேரத்தில் செலுத்துங்கள்.`;
+  }
+
+  if (selected === "త") {
+    if (!nextBill) {
+      return "అన్ని బాగానే ఉన్నాయి. ఈ రోజు పెండింగ్ బిల్లు లేదు.";
+    }
+    return `${nextBill.label} బిల్లు త్వరలో చెల్లించాలి. దయచేసి సమయానికి చెల్లించండి.`;
+  }
+
   if (!nextBill) {
     return "You are all set. No pending bills today.";
   }
   return `Your ${nextBill.label.toLowerCase()} bill is due soon. Please pay in time.`;
+};
+
+const getLocalizedGreeting = (citizen: CitizenModel, pendingBills: BillItem[]) => {
+  const selected = getSelectedLanguage();
+  const topBill = pendingBills[0];
+
+  if (selected === "हि") {
+    const billPart = topBill
+      ? `${topBill.label} का ₹${topBill.amount} का बिल लंबित है।`
+      : "आपके सभी बिल क्लियर हैं।";
+    return `नमस्ते ${citizen.name}, ${billPart} आपके पास ${citizen.documents.length} दस्तावेज़ और ${citizen.healthRecords.length} स्वास्थ्य रिकॉर्ड उपलब्ध हैं।`;
+  }
+
+  if (selected === "த") {
+    const billPart = topBill
+      ? `${topBill.label} ரூபாய் ${topBill.amount} கட்டணம் நிலுவையில் உள்ளது.`
+      : "உங்கள் அனைத்து பில்களும் செலுத்தப்பட்டுள்ளன.";
+    return `வணக்கம் ${citizen.name}, ${billPart} உங்களிடம் ${citizen.documents.length} ஆவணங்களும் ${citizen.healthRecords.length} உடல்நல பதிவுகளும் உள்ளன.`;
+  }
+
+  if (selected === "త") {
+    const billPart = topBill
+      ? `${topBill.label} రూ. ${topBill.amount} బిల్లు పెండింగ్‌లో ఉంది.`
+      : "మీ అన్ని బిల్లులు క్లియర్ అయ్యాయి.";
+    return `నమస్తే ${citizen.name}, ${billPart} మీ వద్ద ${citizen.documents.length} పత్రాలు మరియు ${citizen.healthRecords.length} ఆరోగ్య రికార్డులు ఉన్నాయి.`;
+  }
+
+  const billPart = topBill
+    ? `your ${topBill.label.toLowerCase()} bill of rupees ${topBill.amount} is pending.`
+    : "all your bills are clear.";
+  return `Namaste ${citizen.name}, ${billPart} You have ${citizen.documents.length} documents and ${citizen.healthRecords.length} health records on file.`;
+};
+
+const buildVoiceGuideText = (
+  pendingBills: BillItem[],
+  lowElectricity: boolean,
+  utilityBalances: { electricity: number; water: number; gas: number },
+) => {
+  const elecDays = getDaysRemaining(utilityBalances.electricity, "electricity");
+  const waterDays = getDaysRemaining(utilityBalances.water, "water");
+  const gasDays = getDaysRemaining(utilityBalances.gas, "gas");
+  const selected = getSelectedLanguage();
+
+  if (selected === "हि") {
+    const billInfo = pendingBills.length
+      ? `इस पेज पर ${pendingBills.length} बिल अलर्ट सक्रिय हैं।`
+      : "इस पेज पर कोई बिल अलर्ट सक्रिय नहीं है।";
+    const elecInfo = lowElectricity
+      ? `बिजली बैलेंस कम है, लगभग ${elecDays} दिन शेष हैं।`
+      : "बिजली बैलेंस सामान्य है।";
+    return `${billInfo} ${elecInfo} पानी के लगभग ${waterDays} दिन और गैस के लगभग ${gasDays} दिन शेष हैं।`;
+  }
+
+  if (selected === "த") {
+    const billInfo = pendingBills.length
+      ? `இந்த பக்கத்தில் ${pendingBills.length} பில் எச்சரிக்கைகள் உள்ளன.`
+      : "இந்த பக்கத்தில் நிலுவை பில் எச்சரிக்கை இல்லை.";
+    const elecInfo = lowElectricity
+      ? `மின்சார இருப்பு குறைவாக உள்ளது, சுமார் ${elecDays} நாட்கள் மட்டுமே உள்ளது.`
+      : "மின்சார இருப்பு நிலையாக உள்ளது.";
+    return `${billInfo} ${elecInfo} தண்ணீருக்கு சுமார் ${waterDays} நாட்களும், எரிவாயுவுக்கு சுமார் ${gasDays} நாட்களும் உள்ளது.`;
+  }
+
+  if (selected === "త") {
+    const billInfo = pendingBills.length
+      ? `ఈ పేజీలో ${pendingBills.length} బిల్ అలర్ట్స్ ఉన్నాయి.`
+      : "ఈ పేజీలో పెండింగ్ బిల్ అలర్ట్ లేదు.";
+    const elecInfo = lowElectricity
+      ? `విద్యుత్ బ్యాలెన్స్ తక్కువగా ఉంది, సుమారు ${elecDays} రోజులు మిగిలాయి.`
+      : "విద్యుత్ బ్యాలెన్స్ స్థిరంగా ఉంది.";
+    return `${billInfo} ${elecInfo} నీటి కోసం సుమారు ${waterDays} రోజులు, గ్యాస్ కోసం సుమారు ${gasDays} రోజులు మిగిలాయి.`;
+  }
+
+  return [
+    pendingBills.length
+      ? `${pendingBills.length} bill alerts are active on this page.`
+      : "No pending bill alerts are active.",
+    lowElectricity
+      ? `Electricity balance is low with about ${elecDays} days remaining.`
+      : "Electricity balance is stable.",
+    `Water has about ${waterDays} days remaining and gas has about ${gasDays} days remaining.`,
+  ].join(" ");
 };
 
 const Dashboard = () => {
@@ -198,15 +302,7 @@ const Dashboard = () => {
 
   const utilityBalances = citizen.utilityBalances || getDefaultUtilityBalances(citizen.qrId);
   const lowElectricity = utilityBalances.electricity < 100;
-  const voiceGuideText = [
-    pendingBills.length
-      ? `${pendingBills.length} bill alerts are active on this page.`
-      : "No pending bill alerts are active.",
-    lowElectricity
-      ? `Electricity balance is low with about ${getDaysRemaining(utilityBalances.electricity, "electricity")} days remaining.`
-      : "Electricity balance is stable.",
-    `Water has about ${getDaysRemaining(utilityBalances.water, "water")} days remaining and gas has about ${getDaysRemaining(utilityBalances.gas, "gas")} days remaining.`,
-  ].join(" ");
+  const voiceGuideText = buildVoiceGuideText(pendingBills, lowElectricity, utilityBalances);
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -420,7 +516,7 @@ const Dashboard = () => {
 
       {showAI && (
         <AIVoiceModal
-          text={getBhashiniGreeting(citizen)}
+          text={getLocalizedGreeting(citizen, pendingBills)}
           onClose={() => setShowAI(false)}
         />
       )}

@@ -18,12 +18,12 @@ function normalizeLanguage(input: string | null): BharatQrLanguage {
   if (input === "தமிழ்") return "த";
   if (input === "తెలుగు") return "త";
 
-  return "EN";
+  return "हि";
 }
 
 export function getSelectedLanguage(): BharatQrLanguage {
   if (typeof window === "undefined") {
-    return "EN";
+    return "हि";
   }
 
   return normalizeLanguage(localStorage.getItem("bqr_lang"));
