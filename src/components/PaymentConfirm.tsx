@@ -1,7 +1,6 @@
 import { useState } from "react";
-import { CheckCircle2, X } from "lucide-react";
+import { X } from "lucide-react";
 import type { BillItem } from "@/types";
-import { markBillPaid } from "@/lib/dataService";
 
 interface Props {
   bill: BillItem;
@@ -10,21 +9,7 @@ interface Props {
 }
 
 const PaymentConfirm = ({ bill, qrId, onClose }: Props) => {
-  const [paid, setPaid] = useState(false);
   const [processing, setProcessing] = useState(false);
-
-  if (paid) {
-    return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/40 backdrop-blur-sm" onClick={onClose}>
-        <div className="w-full max-w-sm rounded-2xl bg-card p-8 shadow-2xl animate-fade-up text-center" onClick={(e) => e.stopPropagation()}>
-          <CheckCircle2 className="mx-auto h-20 w-20 text-success mb-4" />
-          <h3 className="text-2xl font-bold text-foreground mb-2">Payment Successful</h3>
-          <p className="text-muted-foreground mb-6">₹{bill.amount} paid for {bill.label}</p>
-          <button onClick={onClose} className="btn-saffron w-full text-sm">Done</button>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/40 backdrop-blur-sm" onClick={onClose}>
@@ -45,14 +30,15 @@ const PaymentConfirm = ({ bill, qrId, onClose }: Props) => {
         <button
           onClick={async () => {
             setProcessing(true);
-            await markBillPaid(qrId, bill.label);
-            setPaid(true);
+            const url = `https://www.bharat-connect.com/?qrId=${encodeURIComponent(qrId)}&bill=${encodeURIComponent(bill.label)}&amount=${bill.amount}`;
+            window.open(url, "_blank", "noopener,noreferrer");
             setProcessing(false);
+            onClose();
           }}
           disabled={processing}
           className="w-full rounded-xl bg-success py-4 text-lg font-bold text-success-foreground shadow-lg hover:brightness-110 active:scale-95 transition-all disabled:opacity-70"
         >
-          {processing ? "Processing..." : "✓ Pay Now"}
+          {processing ? "Redirecting..." : "Proceed to Bharat Connect"}
         </button>
       </div>
     </div>

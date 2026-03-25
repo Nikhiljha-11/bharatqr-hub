@@ -166,9 +166,17 @@ const handleAddCitizen = async (e: React.FormEvent) => {
     }
 
     // adding new citizen
+    const qrId = generateQRId();
+    const seed = qrId.split("").reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
+
     const newCitizen: CitizenModel = {
-      qrId: generateQRId(),
+      qrId,
       ...formData,
+      utilityBalances: {
+        electricity: 40 + (seed % 220),
+        water: 60 + ((seed * 3) % 260),
+        gas: 70 + ((seed * 7) % 300),
+      },
       bills: [],
       documents: [],
       healthRecords: [],

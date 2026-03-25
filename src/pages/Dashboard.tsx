@@ -20,6 +20,17 @@ const maskSensitive = (value: string) => {
   return `XXXX-XXXX-${suffix}`;
 };
 
+const getDefaultUtilityBalances = (qrId: string) => {
+  const source = qrId || "BQR_IND_000";
+  const seed = source.split("").reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
+
+  return {
+    electricity: 40 + (seed % 220),
+    water: 60 + ((seed * 3) % 260),
+    gas: 70 + ((seed * 7) % 300),
+  };
+};
+
 const Dashboard = () => {
   const { qrId } = useParams<{ qrId: string }>();
   const navigate = useNavigate();
@@ -89,7 +100,7 @@ const Dashboard = () => {
     (bill) => (bill.status || citizen.billStatus?.[bill.label] || "Pending") !== "Paid",
   );
 
-  const utilityBalances = citizen.utilityBalances || { electricity: 0, water: 0, gas: 0 };
+  const utilityBalances = citizen.utilityBalances || getDefaultUtilityBalances(citizen.qrId);
   const lowElectricity = utilityBalances.electricity < 100;
 
   return (
@@ -240,7 +251,10 @@ const Dashboard = () => {
                 >
                   <Volume2 className="h-4 w-4 text-destructive" />
                 </button>
-                <button className="ml-auto rounded-lg bg-secondary px-4 py-1.5 text-xs font-bold text-secondary-foreground shadow-md hover:brightness-110 hover:scale-105 transition-all">
+                <button
+                  className="ml-auto rounded-lg bg-secondary px-4 py-1.5 text-xs font-bold text-secondary-foreground shadow-md hover:brightness-110 hover:scale-105 transition-all"
+                  onClick={() => window.open("https://www.bharat-connect.com/", "_blank", "noopener,noreferrer")}
+                >
                   <CreditCard className="inline h-3 w-3 mr-1" />Pay Now
                 </button>
               </div>

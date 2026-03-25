@@ -4,6 +4,9 @@ import { ScanLine, Flashlight, ArrowLeft, AlertCircle, Volume2 } from "lucide-re
 import Header from "@/components/Header";
 import { subscribeCitizens, addCitizen, getCitizen } from "@/lib/dataService";
 import { getSelectedLanguage, speakText } from "@/lib/speech";
+import type { CitizenModel } from "@/types";
+
+type DemoCitizen = Pick<CitizenModel, "qrId" | "name">;
 
 const getScanSpeechText = (key: "identified" | "notFound" | "identityError", citizenName?: string) => {
   const selected = getSelectedLanguage();
@@ -90,7 +93,7 @@ const Scan = () => {
   const [scanning, setScanning] = useState(false);
   const [flashOn, setFlashOn] = useState(false);
   const [error, setError] = useState(false);
-  const [qrIds, setQrIds] = useState<string[]>([]);
+  const [demoCitizens, setDemoCitizens] = useState<DemoCitizen[]>([]);
   const [cameraMessage, setCameraMessage] = useState("Initializing physical scanner...");
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -108,7 +111,7 @@ const Scan = () => {
             loadAttempts++;
             import("@/data/sampleData").then(({ sampleCitizens }) => {
               if (isMounted) {
-                setQrIds(sampleCitizens.map((c) => c.qrId));
+                setDemoCitizens(sampleCitizens.map((c) => ({ qrId: c.qrId, name: c.name })));
                 // Try to add them to Firestore if not already there
                 sampleCitizens.forEach((c) => {
                   addCitizen(c).catch(() => {
@@ -119,11 +122,15 @@ const Scan = () => {
             }).catch(() => {
               // Fallback: show demo IDs even if import fails
               if (isMounted) {
-                setQrIds(["BQR_IND_001", "BQR_IND_002", "BQR_IND_003"]);
+                setDemoCitizens([
+                  { qrId: "BQR_IND_001", name: "Sunita Devi" },
+                  { qrId: "BQR_IND_002", name: "Ramesh Kumar" },
+                  { qrId: "BQR_IND_003", name: "Fatima Begum" },
+                ]);
               }
             });
           } else {
-            setQrIds(list.map((c) => c.qrId));
+            setDemoCitizens(list.map((c) => ({ qrId: c.qrId, name: c.name })));
           }
         }
       });
@@ -314,14 +321,14 @@ const Scan = () => {
         <div className="w-full max-w-sm">
           <p className="text-xs text-muted-foreground text-center mb-3 uppercase tracking-wider font-medium">Simulate Scan</p>
           <div className="grid gap-2">
-            {qrIds.map((id) => (
+            {demoCitizens.map((citizen) => (
               <button
-                key={id}
+                key={citizen.qrId}
                 disabled={scanning}
-                onClick={() => simulateScan(id)}
+                onClick={() => simulateScan(citizen.qrId)}
                 className="btn-navy w-full text-sm disabled:opacity-50"
               >
-                {id}
+                {citizen.name} · {citizen.qrId}
               </button>
             ))}
             <button
