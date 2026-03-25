@@ -41,3 +41,16 @@ export interface CitizenModel {
   healthRecords: { condition: string; date: string; doctor: string }[];
   prescriptions: { medicine: string; dosage: string; duration: string }[];
 }
+
+export interface BiometricChallenge {
+  id: string;
+  qrId: string;
+  status: "pending" | "approved" | "rejected" | "expired";
+  purpose: "reveal" | "document";
+  field?: "aadhaar" | "abha";
+  documentName?: string;
+  documentAction?: "view" | "download";
+  createdAt: string;
+  expiresAt: string;
+  approvedAt?: string;
+}

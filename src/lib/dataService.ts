@@ -9,9 +9,10 @@ import {
   getDoc,
 } from "firebase/firestore";
 import { db } from "@/firebase";
-import { CitizenModel } from "@/types";
+import { BiometricChallenge, CitizenModel } from "@/types";
 
 const citizensCol = collection(db, "citizens");
+const biometricChallengesCol = collection(db, "biometricChallenges");
 
 // fetch all citizens once
 export async function fetchCitizens(): Promise<CitizenModel[]> {
@@ -111,5 +112,72 @@ export async function rechargeUtilityBalance(
 
   await updateDoc(q, {
     utilityBalances: nextBalances,
+  });
+}
+
+export async function createBiometricChallenge(input: {
+  qrId: string;
+  purpose: "reveal" | "document";
+  field?: "aadhaar" | "abha";
+  documentName?: string;
+  documentAction?: "view" | "download";
+  expiresInMinutes?: number;
+}): Promise<string> {
+  const expiresInMinutes = input.expiresInMinutes || 3;
+  const challengeRef = doc(biometricChallengesCol);
+  const now = new Date();
+  const expiresAt = new Date(now.getTime() + expiresInMinutes * 60 * 1000).toISOString();
+
+  const challenge: BiometricChallenge = {
+    id: challengeRef.id,
+    qrId: input.qrId,
+    status: "pending",
+    purpose: input.purpose,
+    field: input.field,
+    documentName: input.documentName,
+    documentAction: input.documentAction,
+    createdAt: now.toISOString(),
+    expiresAt,
+  };
+
+  await setDoc(challengeRef, challenge);
+  return challengeRef.id;
+}
+
+export async function getBiometricChallenge(challengeId: string): Promise<BiometricChallenge | null> {
+  const challengeRef = doc(db, "biometricChallenges", challengeId);
+  const snap = await getDoc(challengeRef);
+  if (!snap.exists()) {
+    return null;
+  }
+  return snap.data() as BiometricChallenge;
+}
+
+export function subscribeBiometricChallenge(
+  challengeId: string,
+  callback: (challenge: BiometricChallenge | null) => void,
+) {
+  const challengeRef = doc(db, "biometricChallenges", challengeId);
+  return onSnapshot(challengeRef, (snapshot) => {
+    if (!snapshot.exists()) {
+      callback(null);
+      return;
+    }
+    callback(snapshot.data() as BiometricChallenge);
+  });
+}
+
+export async function approveBiometricChallenge(challengeId: string) {
+  const challengeRef = doc(db, "biometricChallenges", challengeId);
+  await updateDoc(challengeRef, {
+    status: "approved",
+    approvedAt: new Date().toISOString(),
+  });
+}
+
+export async function expireBiometricChallenge(challengeId: string) {
+  const challengeRef = doc(db, "biometricChallenges", challengeId);
+  await updateDoc(challengeRef, {
+    status: "expired",
   });
 }

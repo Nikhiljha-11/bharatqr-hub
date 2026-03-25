@@ -3,15 +3,16 @@ import { useParams, useNavigate } from "react-router-dom";
 import {
   User, ShieldCheck, Heart, FileText,
   ArrowLeft, Pill, AlertTriangle,
-  Download, Eye, CreditCard, Landmark, Volume2, Fingerprint, Mic, Zap, Droplets, Flame
+  Download, Eye, CreditCard, Landmark, Volume2, Fingerprint, Mic, Zap, Droplets, Flame, Smartphone
 } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
 import Header from "@/components/Header";
 import AIVoiceModal from "@/components/AIVoiceModal";
 import SymbolicBillCards from "@/components/SymbolicBillCards";
 import PaymentConfirm from "@/components/PaymentConfirm";
 import QRCodeDisplay from "@/components/QRCodeDisplay";
 import type { CitizenModel, BillItem, CitizenDocument } from "@/types";
-import { subscribeCitizen } from "@/lib/dataService";
+import { createBiometricChallenge, expireBiometricChallenge, subscribeBiometricChallenge, subscribeCitizen } from "@/lib/dataService";
 import { getAlertSpeechSummary, getSelectedLanguage, speakText } from "@/lib/speech";
 import { toast } from "sonner";
 import { maskIdentifier } from "@/lib/security";
@@ -37,6 +38,25 @@ const utilityConsumptionPerDay = {
 
 const getDaysRemaining = (amount: number, type: keyof typeof utilityConsumptionPerDay) => {
   return Math.max(1, Math.floor(amount / utilityConsumptionPerDay[type]));
+};
+
+const performDocumentAction = (doc: CitizenDocument, action: "view" | "download") => {
+  if (!doc.contentUrl) {
+    toast.info("No uploaded file available for this document.");
+    return;
+  }
+
+  if (action === "view") {
+    window.open(doc.contentUrl, "_blank", "noopener,noreferrer");
+    return;
+  }
+
+  const link = document.createElement("a");
+  link.href = doc.contentUrl;
+  link.download = doc.name || "document";
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
 };
 
 const buildFirstScanSummary = (bills: BillItem[]) => {
@@ -166,6 +186,14 @@ const Dashboard = () => {
     action: "view" | "download";
   } | null>(null);
   const [isVoiceGuideOpen, setIsVoiceGuideOpen] = useState(false);
+  const [crossDeviceChallenge, setCrossDeviceChallenge] = useState<{
+    challengeId: string;
+    approvalUrl: string;
+    purpose: "reveal" | "document";
+    field?: "aadhaar" | "abha";
+    document?: CitizenDocument;
+    action?: "view" | "download";
+  } | null>(null);
 
   useEffect(() => {
     setActiveRole("citizen");
@@ -207,6 +235,49 @@ const Dashboard = () => {
     return () => clearTimeout(timer);
   }, [citizen]);
 
+  useEffect(() => {
+    if (!crossDeviceChallenge) {
+      return;
+    }
+
+    const unsub = subscribeBiometricChallenge(crossDeviceChallenge.challengeId, (challenge) => {
+      if (!challenge) {
+        return;
+      }
+
+      if (challenge.status === "approved") {
+        if (crossDeviceChallenge.purpose === "reveal" && crossDeviceChallenge.field) {
+          setRevealed((prev) => ({ ...prev, [crossDeviceChallenge.field as "aadhaar" | "abha"]: true }));
+          toast.success("Biometric approved on second device. Data unlocked.");
+        }
+
+        if (crossDeviceChallenge.purpose === "document" && crossDeviceChallenge.document && crossDeviceChallenge.action) {
+          performDocumentAction(crossDeviceChallenge.document, crossDeviceChallenge.action);
+          toast.success("Biometric approved on second device. Document opened.");
+        }
+
+        setCrossDeviceChallenge(null);
+        return;
+      }
+
+      if (challenge.status === "expired") {
+        setCrossDeviceChallenge(null);
+        toast.error("Cross-device biometric request expired. Please try again.");
+      }
+    });
+
+    const expiryTimer = window.setTimeout(() => {
+      expireBiometricChallenge(crossDeviceChallenge.challengeId).catch(() => {
+        // Best effort expiry.
+      });
+    }, 3 * 60 * 1000);
+
+    return () => {
+      clearTimeout(expiryTimer);
+      unsub();
+    };
+  }, [crossDeviceChallenge]);
+
   if (loading) {
     return (
       <div className="min-h-screen flex flex-col bg-background">
@@ -245,7 +316,14 @@ const Dashboard = () => {
     const verified = await authenticateWithPlatformBiometrics();
     if (!verified) {
       setVerifyingField(null);
-      toast.error("Biometric verification was not completed.");
+      const challengeId = await createBiometricChallenge({
+        qrId: citizen.qrId,
+        purpose: "reveal",
+        field,
+      });
+      const approvalUrl = `${window.location.origin}/biometric-approve/${challengeId}`;
+      setCrossDeviceChallenge({ challengeId, approvalUrl, purpose: "reveal", field });
+      toast.info("Use another trusted device to verify biometrics and unlock.");
       return;
     }
 
@@ -256,22 +334,7 @@ const Dashboard = () => {
   };
 
   const openDocument = (doc: CitizenDocument, action: "view" | "download") => {
-    if (!doc.contentUrl) {
-      toast.info("No uploaded file available for this document.");
-      return;
-    }
-
-    if (action === "view") {
-      window.open(doc.contentUrl, "_blank", "noopener,noreferrer");
-      return;
-    }
-
-    const link = document.createElement("a");
-    link.href = doc.contentUrl;
-    link.download = doc.name || "document";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    performDocumentAction(doc, action);
   };
 
   const requestDocumentAccess = async (doc: CitizenDocument, action: "view" | "download") => {
@@ -287,7 +350,21 @@ const Dashboard = () => {
     if (!verified) {
       setVerifyingField(null);
       setPendingDocumentAction(null);
-      toast.error("Document unlock requires successful biometric verification.");
+      const challengeId = await createBiometricChallenge({
+        qrId: citizen.qrId,
+        purpose: "document",
+        documentName: doc.name,
+        documentAction: action,
+      });
+      const approvalUrl = `${window.location.origin}/biometric-approve/${challengeId}`;
+      setCrossDeviceChallenge({
+        challengeId,
+        approvalUrl,
+        purpose: "document",
+        document: doc,
+        action,
+      });
+      toast.info("Biometric unavailable on this phone. Approve on another device.");
       return;
     }
 
@@ -560,6 +637,29 @@ const Dashboard = () => {
             <div className="mt-4 h-2 rounded-full bg-muted overflow-hidden">
               <div className="h-full w-full bg-primary animate-[pulse_1.2s_ease-in-out_infinite]" />
             </div>
+          </div>
+        </div>
+      )}
+
+      {crossDeviceChallenge && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/50 backdrop-blur-sm px-4">
+          <div className="w-full max-w-md rounded-2xl bg-card p-6 text-center">
+            <Smartphone className="mx-auto h-10 w-10 text-primary" />
+            <p className="mt-2 font-semibold text-foreground">Verify On Another Device</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Scan this QR on a trusted device with working FaceID/Fingerprint.
+            </p>
+            <div className="mt-4 inline-block rounded-xl border border-border bg-white p-3">
+              <QRCodeSVG value={crossDeviceChallenge.approvalUrl} size={180} level="H" includeMargin />
+            </div>
+            <p className="mt-3 break-all text-[11px] text-muted-foreground">{crossDeviceChallenge.approvalUrl}</p>
+            <button
+              type="button"
+              className="mt-4 w-full rounded-lg border border-border px-4 py-2 text-sm font-medium hover:bg-accent"
+              onClick={() => setCrossDeviceChallenge(null)}
+            >
+              Cancel Request
+            </button>
           </div>
         </div>
       )}

@@ -14,6 +14,7 @@ import Documents from "./pages/Documents";
 import AdminLogin from "./pages/AdminLogin";
 import AdminDashboard from "./pages/AdminDashboard";
 import NotFound from "./pages/NotFound";
+import BiometricApproval from "./pages/BiometricApproval";
 import { isAdminSessionActive } from "./lib/auth";
 
 const queryClient = new QueryClient();
@@ -57,6 +58,7 @@ const App = () => (
           />
           <Route path="/dashboard/:qrId" element={<Dashboard />} />
           <Route path="/citizen/:qrId" element={<Dashboard />} />
+          <Route path="/biometric-approve/:challengeId" element={<BiometricApproval />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
