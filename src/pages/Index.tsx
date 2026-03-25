@@ -2,17 +2,23 @@ import { useNavigate } from "react-router-dom";
 import { ScanLine, ShieldCheck, Users, Globe, Wifi, Lock } from "lucide-react";
 import { impactStats } from "@/data/mockData";
 import { useState, useEffect } from "react";
+import { getSelectedLanguage, setSelectedLanguage } from "@/lib/speech";
 import logo from "@/assets/cfea4efc866df78dba4f5702722615ad.jpg";
 
 const languages = [
   { code: "EN", label: "English" },
   { code: "हि", label: "हिन्दी" },
   { code: "த", label: "தமிழ்" },
+  { code: "త", label: "తెలుగు" },
 ];
 
 const Index = () => {
   const navigate = useNavigate();
-  const [activeLang, setActiveLang] = useState(0);
+  const [activeLang, setActiveLang] = useState(() => {
+    const selected = getSelectedLanguage();
+    const idx = languages.findIndex((lang) => lang.code === selected);
+    return idx >= 0 ? idx : 1;
+  });
   const [time, setTime] = useState(new Date());
 
   useEffect(() => {
@@ -21,7 +27,7 @@ const Index = () => {
   }, []);
 
   useEffect(() => {
-    localStorage.setItem("bqr_lang", languages[activeLang].code);
+    setSelectedLanguage(languages[activeLang].code);
   }, [activeLang]);
 
   return (

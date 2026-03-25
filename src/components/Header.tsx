@@ -1,9 +1,15 @@
 import { useState, useEffect } from "react";
 import { Globe, Menu, X } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { getSelectedLanguage, setSelectedLanguage } from "@/lib/speech";
 import logo from "@/assets/cfea4efc866df78dba4f5702722615ad.jpg";
 
-const languages = ["English", "हिन्दी", "தமிழ்", "తెలుగు"];
+const languages = [
+  { code: "EN", label: "English" },
+  { code: "हि", label: "हिन्दी" },
+  { code: "த", label: "தமிழ்" },
+  { code: "త", label: "తెలుగు" },
+];
 
 const navItems = [
   { label: "Home", path: "/" },
@@ -15,7 +21,11 @@ const navItems = [
 
 const Header = () => {
   const [time, setTime] = useState(new Date());
-  const [lang, setLang] = useState(0);
+  const [lang, setLang] = useState(() => {
+    const selected = getSelectedLanguage();
+    const idx = languages.findIndex((l) => l.code === selected);
+    return idx >= 0 ? idx : 1;
+  });
   const [menuOpen, setMenuOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
@@ -28,6 +38,10 @@ const Header = () => {
   useEffect(() => {
     setMenuOpen(false);
   }, [location.pathname]);
+
+  useEffect(() => {
+    setSelectedLanguage(languages[lang].code);
+  }, [lang]);
 
   const isActive = (path: string) => {
     if (path === "/") return location.pathname === "/";
@@ -74,7 +88,7 @@ const Header = () => {
             className="flex items-center gap-1.5 rounded-md bg-primary-foreground/10 px-3 py-1.5 text-sm font-medium transition-colors hover:bg-primary-foreground/20"
           >
             <Globe className="h-4 w-4" />
-            {languages[lang]}
+            {languages[lang].label}
           </button>
 
           {/* Mobile hamburger */}

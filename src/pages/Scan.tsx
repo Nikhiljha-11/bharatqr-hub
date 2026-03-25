@@ -3,7 +3,33 @@ import { useNavigate } from "react-router-dom";
 import { ScanLine, Flashlight, ArrowLeft, AlertCircle, Volume2 } from "lucide-react";
 import Header from "@/components/Header";
 import { subscribeCitizens, addCitizen, getCitizen } from "@/lib/dataService";
-import { speakText } from "@/lib/speech";
+import { getSelectedLanguage, speakText } from "@/lib/speech";
+
+const getScanSpeechText = (key: "identified" | "notFound" | "identityError", citizenName?: string) => {
+  const selected = getSelectedLanguage();
+
+  if (selected === "हि") {
+    if (key === "identified") return `${citizenName ?? "नागरिक"} की पहचान सफल रही।`;
+    if (key === "notFound") return "नागरिक नहीं मिला।";
+    return "पहचान नहीं मिली। कृपया नजदीकी सहायता केंद्र से संपर्क करें।";
+  }
+
+  if (selected === "த") {
+    if (key === "identified") return `${citizenName ?? "குடிமகன்"} அடையாளம் வெற்றிகரமாக உறுதிப்படுத்தப்பட்டது.`;
+    if (key === "notFound") return "குடிமகன் கிடைக்கவில்லை.";
+    return "அடையாளம் கிடைக்கவில்லை. அருகிலுள்ள உதவி மையத்தை தொடர்பு கொள்ளவும்.";
+  }
+
+  if (selected === "త") {
+    if (key === "identified") return `${citizenName ?? "పౌరుడు"} గుర్తింపు విజయవంతంగా పూర్తైంది.`;
+    if (key === "notFound") return "పౌరుడు కనబడలేదు.";
+    return "గుర్తింపు దొరకలేదు. దయచేసి సమీప హెల్ప్ డెస్క్‌ను సంప్రదించండి.";
+  }
+
+  if (key === "identified") return `${citizenName ?? "Citizen"} identified successfully.`;
+  if (key === "notFound") return "Citizen not found.";
+  return "Identity not found. Please contact nearest help desk.";
+};
 
 const Scan = () => {
   const navigate = useNavigate();
@@ -109,7 +135,7 @@ const Scan = () => {
 
             const citizen = await getCitizen(raw);
             if (citizen) {
-              speakText(`${citizen.name} identified successfully.`);
+              speakText(getScanSpeechText("identified", citizen.name));
               navigate(`/citizen/${raw}`);
               return;
             }
@@ -119,7 +145,7 @@ const Scan = () => {
           } catch {
             // Ignore transient detector failures.
           }
-        }, 700);
+        }, 300);
       } catch {
         setCameraMessage("Camera access blocked. Allow camera permission or use Simulate Scan.");
       }
@@ -142,21 +168,22 @@ const Scan = () => {
     setScanning(true);
     setError(false);
 
-    // optionally fetch citizen details and speak name
-    try {
-      const citizen = await getCitizen(id);
+    // Fetch and speak in parallel, then navigate quickly for better UX.
+    getCitizen(id)
+      .then((citizen) => {
       if (citizen) {
-        speakText(`${citizen.name} identified successfully.`);
+          speakText(getScanSpeechText("identified", citizen.name));
       } else {
-        speakText("Citizen not found.");
+          speakText(getScanSpeechText("notFound"));
       }
-    } catch (err) {
-      console.error(err);
-    }
+      })
+      .catch((err) => {
+        console.error(err);
+      });
 
     setTimeout(() => {
       navigate(`/citizen/${id}`);
-    }, 1500);
+    }, 350);
   };
 
   const simulateUnknown = () => {
@@ -164,7 +191,7 @@ const Scan = () => {
     setTimeout(() => {
       setScanning(false);
       setError(true);
-    }, 1500);
+    }, 600);
   };
 
   return (
@@ -223,7 +250,7 @@ const Scan = () => {
             <button
               type="button"
               className="rounded-md p-1 hover:bg-destructive/20"
-              onClick={() => speakText("Identity not found. Please contact nearest help desk.")}
+              onClick={() => speakText(getScanSpeechText("identityError"))}
               aria-label="Speak identity error"
             >
               <Volume2 className="h-4 w-4 text-destructive" />
