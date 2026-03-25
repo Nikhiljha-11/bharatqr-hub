@@ -11,9 +11,10 @@ import SymbolicBillCards from "@/components/SymbolicBillCards";
 import PaymentConfirm from "@/components/PaymentConfirm";
 import QRCodeDisplay from "@/components/QRCodeDisplay";
 import { getBhashiniGreeting } from "@/data/mockData";
-import type { CitizenModel, BillItem } from "@/types";
+import type { CitizenModel, BillItem, CitizenDocument } from "@/types";
 import { subscribeCitizen } from "@/lib/dataService";
 import { getAlertSpeechSummary, speakText } from "@/lib/speech";
+import { toast } from "sonner";
 
 const maskSensitive = (value: string) => {
   const suffix = value.slice(-4);
@@ -39,7 +40,11 @@ const Dashboard = () => {
   const [showAI, setShowAI] = useState(false);
   const [payingBill, setPayingBill] = useState<BillItem | null>(null);
   const [revealed, setRevealed] = useState({ aadhaar: false, abha: false });
-  const [verifyingField, setVerifyingField] = useState<"aadhaar" | "abha" | null>(null);
+  const [verifyingField, setVerifyingField] = useState<"aadhaar" | "abha" | "document" | null>(null);
+  const [pendingDocumentAction, setPendingDocumentAction] = useState<{
+    doc: CitizenDocument;
+    action: "view" | "download";
+  } | null>(null);
 
   useEffect(() => {
     if (!qrId) {
@@ -92,6 +97,40 @@ const Dashboard = () => {
     setVerifyingField(field);
     setTimeout(() => {
       setRevealed((prev) => ({ ...prev, [field]: true }));
+      setVerifyingField(null);
+    }, 1800);
+  };
+
+  const openDocument = (doc: CitizenDocument, action: "view" | "download") => {
+    if (!doc.contentUrl) {
+      toast.info("No uploaded file available for this document.");
+      return;
+    }
+
+    if (action === "view") {
+      window.open(doc.contentUrl, "_blank", "noopener,noreferrer");
+      return;
+    }
+
+    const link = document.createElement("a");
+    link.href = doc.contentUrl;
+    link.download = doc.name || "document";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const requestDocumentAccess = (doc: CitizenDocument, action: "view" | "download") => {
+    if (doc.requiresBiometric === false) {
+      openDocument(doc, action);
+      return;
+    }
+
+    setPendingDocumentAction({ doc, action });
+    setVerifyingField("document");
+    setTimeout(() => {
+      openDocument(doc, action);
+      setPendingDocumentAction(null);
       setVerifyingField(null);
     }, 1800);
   };
@@ -290,8 +329,18 @@ const Dashboard = () => {
                     <p className="text-xs text-muted-foreground">{d.type} · Issued {d.issued}</p>
                   </div>
                   <div className="flex gap-1">
-                    <button className="rounded-md p-1.5 hover:bg-accent transition-colors"><Eye className="h-4 w-4 text-muted-foreground" /></button>
-                    <button className="rounded-md p-1.5 hover:bg-accent transition-colors"><Download className="h-4 w-4 text-muted-foreground" /></button>
+                    <button
+                      onClick={() => requestDocumentAccess(d, "view")}
+                      className="rounded-md p-1.5 hover:bg-accent transition-colors"
+                    >
+                      <Eye className="h-4 w-4 text-muted-foreground" />
+                    </button>
+                    <button
+                      onClick={() => requestDocumentAccess(d, "download")}
+                      className="rounded-md p-1.5 hover:bg-accent transition-colors"
+                    >
+                      <Download className="h-4 w-4 text-muted-foreground" />
+                    </button>
                   </div>
                 </div>
               ))}
@@ -320,7 +369,11 @@ const Dashboard = () => {
           <div className="w-full max-w-sm rounded-2xl bg-card p-6 text-center">
             <Fingerprint className="mx-auto h-12 w-12 text-primary animate-pulse mb-3" />
             <p className="font-semibold text-foreground">Verify Biometric</p>
-            <p className="text-xs text-muted-foreground mt-1">Scanning fingerprint for secure reveal...</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              {verifyingField === "document"
+                ? `Scanning fingerprint to ${pendingDocumentAction?.action || "access"} document...`
+                : "Scanning fingerprint for secure reveal..."}
+            </p>
             <div className="mt-4 h-2 rounded-full bg-muted overflow-hidden">
               <div className="h-full w-full bg-primary animate-[pulse_1.2s_ease-in-out_infinite]" />
             </div>

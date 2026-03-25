@@ -9,7 +9,7 @@ import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import QRCodeDisplay from "@/components/QRCodeDisplay";
 import { toast } from "sonner";
-import { CitizenModel } from "@/types";
+import { CitizenDocument, CitizenModel } from "@/types";
 import {
   subscribeCitizens,
   addCitizen,
@@ -18,6 +18,14 @@ import {
 } from "@/lib/dataService";
 
 const ADMIN_SECONDARY_PIN = "1234";
+
+const readFileAsDataUrl = (file: File): Promise<string> =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(new Error("Failed to read file"));
+    reader.readAsDataURL(file);
+  });
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
@@ -30,6 +38,15 @@ const AdminDashboard = () => {
   const [showQRCode, setShowQRCode] = useState(false);
   const [newlyCitizen, setNewlyCitizen] = useState<CitizenModel | null>(null);
   const [citizensList, setCitizensList] = useState<CitizenModel[]>([]);
+  const [formDocuments, setFormDocuments] = useState<CitizenDocument[]>([]);
+  const [docDraft, setDocDraft] = useState({
+    name: "",
+    type: "General",
+    fileName: "",
+    contentUrl: "",
+    mimeType: "",
+    requiresBiometric: true,
+  });
   const [formData, setFormData] = useState({
     name: "",
     nameHindi: "",
@@ -115,6 +132,89 @@ const AdminDashboard = () => {
     }));
   };
 
+  const resetForm = () => {
+    setFormData({
+      name: "",
+      nameHindi: "",
+      aadhaar: "",
+      voterId: "",
+      phone: "",
+      village: "",
+      district: "",
+      state: "",
+      abhaId: "",
+      balance: 0,
+    });
+    setFormDocuments([]);
+    setDocDraft({
+      name: "",
+      type: "General",
+      fileName: "",
+      contentUrl: "",
+      mimeType: "",
+      requiresBiometric: true,
+    });
+  };
+
+  const handleDocFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) {
+      return;
+    }
+
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error("Document too large. Max allowed size is 2MB.");
+      event.target.value = "";
+      return;
+    }
+
+    try {
+      const contentUrl = await readFileAsDataUrl(file);
+      setDocDraft((prev) => ({
+        ...prev,
+        fileName: file.name,
+        contentUrl,
+        mimeType: file.type || "application/octet-stream",
+        name: prev.name || file.name,
+      }));
+    } catch {
+      toast.error("Unable to read selected document.");
+    }
+  };
+
+  const addDocumentToForm = () => {
+    if (!docDraft.name || !docDraft.type) {
+      toast.error("Please enter document name and type.");
+      return;
+    }
+
+    const issued = new Date().toISOString().slice(0, 10);
+    setFormDocuments((prev) => [
+      ...prev,
+      {
+        name: docDraft.name,
+        type: docDraft.type,
+        issued,
+        contentUrl: docDraft.contentUrl || undefined,
+        mimeType: docDraft.mimeType || undefined,
+        requiresBiometric: docDraft.requiresBiometric,
+      },
+    ]);
+
+    setDocDraft({
+      name: "",
+      type: "General",
+      fileName: "",
+      contentUrl: "",
+      mimeType: "",
+      requiresBiometric: true,
+    });
+  };
+
+  const removeFormDocument = (index: number) => {
+    setFormDocuments((prev) => prev.filter((_, i) => i !== index));
+  };
+
   const generateQRId = () => {
     const maxId = Math.max(...citizensList.map((c) => parseInt(c.qrId.split("_")[2])), 0);
     return `BQR_IND_${String(maxId + 1).padStart(3, "0")}`;
@@ -142,22 +242,14 @@ const handleAddCitizen = async (e: React.FormEvent) => {
     if (selectedCitizen) {
       // editing existing
       try {
-        await updateCitizen(selectedCitizen.qrId, formData);
+        await updateCitizen(selectedCitizen.qrId, {
+          ...formData,
+          documents: formDocuments,
+        });
         toast.success(`${formData.name} updated successfully!`);
         setSelectedCitizen(null);
         setShowForm(false);
-        setFormData({
-          name: "",
-          nameHindi: "",
-          aadhaar: "",
-          voterId: "",
-          phone: "",
-          village: "",
-          district: "",
-          state: "",
-          abhaId: "",
-          balance: 0,
-        });
+        resetForm();
       } catch (err) {
         console.error(err);
         toast.error("Unable to update customer");
@@ -178,7 +270,7 @@ const handleAddCitizen = async (e: React.FormEvent) => {
         gas: 70 + ((seed * 7) % 300),
       },
       bills: [],
-      documents: [],
+      documents: formDocuments,
       healthRecords: [],
       prescriptions: [],
     };
@@ -187,18 +279,7 @@ const handleAddCitizen = async (e: React.FormEvent) => {
       await addCitizen(newCitizen);
       setNewlyCitizen(newCitizen);
       setShowQRCode(true);
-      setFormData({
-      name: "",
-      nameHindi: "",
-      aadhaar: "",
-      voterId: "",
-      phone: "",
-      village: "",
-      district: "",
-      state: "",
-      abhaId: "",
-      balance: 0,
-    });
+      resetForm();
       setShowForm(false);
       toast.success(`${newCitizen.name} added successfully!`);
     } catch (err) {
@@ -348,6 +429,61 @@ const handleAddCitizen = async (e: React.FormEvent) => {
                   onChange={handleInputChange}
                 />
               </div>
+
+              <div className="rounded-xl border border-slate-200 p-4 bg-slate-50">
+                <h3 className="text-sm font-semibold text-slate-800 mb-3">Document Upload (Biometric Secured)</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <Input
+                    placeholder="Document Name"
+                    value={docDraft.name}
+                    onChange={(e) => setDocDraft((prev) => ({ ...prev, name: e.target.value }))}
+                  />
+                  <Input
+                    placeholder="Document Type"
+                    value={docDraft.type}
+                    onChange={(e) => setDocDraft((prev) => ({ ...prev, type: e.target.value }))}
+                  />
+                  <Input type="file" onChange={handleDocFileChange} />
+                  <label className="flex items-center gap-2 text-sm text-slate-700">
+                    <input
+                      type="checkbox"
+                      checked={docDraft.requiresBiometric}
+                      onChange={(e) => setDocDraft((prev) => ({ ...prev, requiresBiometric: e.target.checked }))}
+                    />
+                    Require biometric before access
+                  </label>
+                </div>
+                <div className="mt-3 flex gap-2">
+                  <Button type="button" onClick={addDocumentToForm} className="bg-blue-600 hover:bg-blue-700">
+                    Add Document
+                  </Button>
+                  {docDraft.fileName && (
+                    <p className="text-xs text-slate-500 self-center">Selected file: {docDraft.fileName}</p>
+                  )}
+                </div>
+
+                {formDocuments.length > 0 && (
+                  <div className="mt-3 space-y-2">
+                    {formDocuments.map((doc, index) => (
+                      <div key={`${doc.name}-${index}`} className="flex items-center justify-between rounded-md bg-white border border-slate-200 px-3 py-2 text-sm">
+                        <div>
+                          <p className="font-medium text-slate-800">{doc.name}</p>
+                          <p className="text-xs text-slate-500">{doc.type} · {doc.requiresBiometric ? "Biometric" : "Open"}</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => removeFormDocument(index)}
+                          className="text-red-600 hover:text-red-700"
+                          aria-label="Remove document"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               <div className="flex gap-3 pt-4">
                 <Button type="submit" className="flex-1 bg-primary hover:bg-primary/80">
                   {selectedCitizen ? "Save Changes" : "Add Customer & Generate QR"}
@@ -355,7 +491,11 @@ const handleAddCitizen = async (e: React.FormEvent) => {
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => setShowForm(false)}
+                  onClick={() => {
+                    setShowForm(false);
+                    setSelectedCitizen(null);
+                    resetForm();
+                  }}
                   className="flex-1"
                 >
                   Cancel
@@ -470,6 +610,7 @@ const handleAddCitizen = async (e: React.FormEvent) => {
                               abhaId: citizen.abhaId,
                               balance: citizen.balance,
                             });
+                            setFormDocuments(citizen.documents || []);
                           }}
                           className="p-2 text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
                           title="Edit"

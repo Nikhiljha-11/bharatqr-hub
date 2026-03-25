@@ -9,6 +9,15 @@ export interface BillItem {
   status?: "Pending" | "Paid";
 }
 
+export interface CitizenDocument {
+  name: string;
+  type: string;
+  issued: string;
+  contentUrl?: string;
+  mimeType?: string;
+  requiresBiometric?: boolean;
+}
+
 export interface CitizenModel {
   qrId: string;
   name: string;
@@ -28,7 +37,7 @@ export interface CitizenModel {
   };
   bills: BillItem[];
   billStatus?: Record<string, "Pending" | "Paid">;
-  documents: { name: string; type: string; issued: string }[];
+  documents: CitizenDocument[];
   healthRecords: { condition: string; date: string; doctor: string }[];
   prescriptions: { medicine: string; dosage: string; duration: string }[];
 }
