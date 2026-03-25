@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import {
   User, ShieldCheck, Heart, FileText,
   ArrowLeft, Pill, AlertTriangle,
-  Download, Eye, CreditCard, Landmark, Volume2, Fingerprint
+  Download, Eye, CreditCard, Landmark, Volume2, Fingerprint, Mic, Zap, Droplets, Flame
 } from "lucide-react";
 import Header from "@/components/Header";
 import AIVoiceModal from "@/components/AIVoiceModal";
@@ -15,11 +15,9 @@ import type { CitizenModel, BillItem, CitizenDocument } from "@/types";
 import { subscribeCitizen } from "@/lib/dataService";
 import { getAlertSpeechSummary, speakText } from "@/lib/speech";
 import { toast } from "sonner";
-
-const maskSensitive = (value: string) => {
-  const suffix = value.slice(-4);
-  return `XXXX-XXXX-${suffix}`;
-};
+import { maskIdentifier } from "@/lib/security";
+import { authenticateWithPlatformBiometrics } from "@/lib/webauthn";
+import { setActiveRole } from "@/lib/auth";
 
 const getDefaultUtilityBalances = (qrId: string) => {
   const source = qrId || "BQR_IND_000";
@@ -30,6 +28,24 @@ const getDefaultUtilityBalances = (qrId: string) => {
     water: 60 + ((seed * 3) % 260),
     gas: 70 + ((seed * 7) % 300),
   };
+};
+
+const utilityConsumptionPerDay = {
+  electricity: 55,
+  water: 40,
+  gas: 35,
+};
+
+const getDaysRemaining = (amount: number, type: keyof typeof utilityConsumptionPerDay) => {
+  return Math.max(1, Math.floor(amount / utilityConsumptionPerDay[type]));
+};
+
+const buildFirstScanSummary = (bills: BillItem[]) => {
+  const nextBill = bills[0];
+  if (!nextBill) {
+    return "You are all set. No pending bills today.";
+  }
+  return `Your ${nextBill.label.toLowerCase()} bill is due soon. Please pay in time.`;
 };
 
 const Dashboard = () => {
@@ -45,8 +61,10 @@ const Dashboard = () => {
     doc: CitizenDocument;
     action: "view" | "download";
   } | null>(null);
+  const [isVoiceGuideOpen, setIsVoiceGuideOpen] = useState(false);
 
   useEffect(() => {
+    setActiveRole("citizen");
     if (!qrId) {
       setLoading(false);
       return;
@@ -63,14 +81,38 @@ const Dashboard = () => {
     return () => unsub();
   }, [qrId]);
 
+  useEffect(() => {
+    if (!citizen) {
+      return;
+    }
+
+    const key = `bqr_voice_summary_played_${citizen.qrId}`;
+    if (localStorage.getItem(key) === "1") {
+      return;
+    }
+
+    const pending = citizen.bills.filter(
+      (bill) => (bill.status || citizen.billStatus?.[bill.label] || "Pending") !== "Paid",
+    );
+    const text = buildFirstScanSummary(pending);
+    const timer = window.setTimeout(() => {
+      speakText(text);
+      localStorage.setItem(key, "1");
+    }, 600);
+
+    return () => clearTimeout(timer);
+  }, [citizen]);
+
   if (loading) {
     return (
       <div className="min-h-screen flex flex-col bg-background">
         <Header />
         <div className="flex-1 flex items-center justify-center">
-          <div className="flex flex-col items-center gap-4 animate-fade-up">
-            <div className="h-16 w-16 rounded-full border-4 border-secondary border-t-transparent animate-spin" />
-            <p className="text-muted-foreground font-medium">Loading citizen profile...</p>
+          <div className="w-full max-w-md space-y-3 animate-fade-up">
+            <div className="h-16 w-1/2 mx-auto rounded-xl animate-shimmer" />
+            <div className="h-24 w-full rounded-2xl animate-shimmer" />
+            <div className="h-24 w-full rounded-2xl animate-shimmer" />
+            <p className="text-muted-foreground text-center font-medium">Loading citizen profile...</p>
           </div>
         </div>
       </div>
@@ -93,12 +135,20 @@ const Dashboard = () => {
     );
   }
 
-  const requestReveal = (field: "aadhaar" | "abha") => {
+  const requestReveal = async (field: "aadhaar" | "abha") => {
     setVerifyingField(field);
+
+    const verified = await authenticateWithPlatformBiometrics();
+    if (!verified) {
+      setVerifyingField(null);
+      toast.error("Biometric verification was not completed.");
+      return;
+    }
+
     setTimeout(() => {
       setRevealed((prev) => ({ ...prev, [field]: true }));
       setVerifyingField(null);
-    }, 1800);
+    }, 300);
   };
 
   const openDocument = (doc: CitizenDocument, action: "view" | "download") => {
@@ -120,7 +170,7 @@ const Dashboard = () => {
     document.body.removeChild(link);
   };
 
-  const requestDocumentAccess = (doc: CitizenDocument, action: "view" | "download") => {
+  const requestDocumentAccess = async (doc: CitizenDocument, action: "view" | "download") => {
     if (doc.requiresBiometric === false) {
       openDocument(doc, action);
       return;
@@ -128,11 +178,18 @@ const Dashboard = () => {
 
     setPendingDocumentAction({ doc, action });
     setVerifyingField("document");
-    setTimeout(() => {
-      openDocument(doc, action);
-      setPendingDocumentAction(null);
+
+    const verified = await authenticateWithPlatformBiometrics();
+    if (!verified) {
       setVerifyingField(null);
-    }, 1800);
+      setPendingDocumentAction(null);
+      toast.error("Document unlock requires successful biometric verification.");
+      return;
+    }
+
+    openDocument(doc, action);
+    setPendingDocumentAction(null);
+    setVerifyingField(null);
   };
 
   const pendingBills = citizen.bills.filter(
@@ -141,6 +198,15 @@ const Dashboard = () => {
 
   const utilityBalances = citizen.utilityBalances || getDefaultUtilityBalances(citizen.qrId);
   const lowElectricity = utilityBalances.electricity < 100;
+  const voiceGuideText = [
+    pendingBills.length
+      ? `${pendingBills.length} bill alerts are active on this page.`
+      : "No pending bill alerts are active.",
+    lowElectricity
+      ? `Electricity balance is low with about ${getDaysRemaining(utilityBalances.electricity, "electricity")} days remaining.`
+      : "Electricity balance is stable.",
+    `Water has about ${getDaysRemaining(utilityBalances.water, "water")} days remaining and gas has about ${getDaysRemaining(utilityBalances.gas, "gas")} days remaining.`,
+  ].join(" ");
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -163,7 +229,7 @@ const Dashboard = () => {
                 <span className="text-xs font-medium text-success bg-success/10 rounded-full px-2 py-0.5">Verified</span>
               </div>
               <p className="text-sm text-muted-foreground">{citizen.nameHindi}</p>
-              <p className="text-sm text-muted-foreground mt-1">Aadhaar: {revealed.aadhaar ? citizen.aadhaar : maskSensitive(citizen.aadhaar)} · {citizen.village}, {citizen.district}, {citizen.state}</p>
+              <p className="text-sm text-muted-foreground mt-1">Aadhaar: {revealed.aadhaar ? citizen.aadhaar : maskIdentifier(citizen.aadhaar)} · {citizen.village}, {citizen.district}, {citizen.state}</p>
             </div>
           </div>
         </div>
@@ -188,9 +254,9 @@ const Dashboard = () => {
             </div>
             <div className="space-y-2 text-sm">
               <div className="flex justify-between items-center">
-                <span className="text-muted-foreground">Aadhaar</span>
+                <span className="text-muted-foreground flex items-center gap-1"><Fingerprint className="h-3.5 w-3.5" /> Aadhaar</span>
                 <span className="flex items-center gap-2 font-medium text-foreground">
-                  {revealed.aadhaar ? citizen.aadhaar : maskSensitive(citizen.aadhaar)}
+                  {revealed.aadhaar ? citizen.aadhaar : maskIdentifier(citizen.aadhaar)}
                   {!revealed.aadhaar && (
                     <button
                       type="button"
@@ -204,7 +270,7 @@ const Dashboard = () => {
                 </span>
               </div>
               <div className="flex justify-between"><span className="text-muted-foreground">Voter ID</span><span className="font-medium text-foreground">{citizen.voterId}</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">Phone</span><span className="font-medium text-foreground">{citizen.phone}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Phone</span><span className="font-medium text-foreground">XXXXXX{citizen.phone.replace(/\D/g, "").slice(-4)}</span></div>
             </div>
           </div>
 
@@ -215,7 +281,7 @@ const Dashboard = () => {
               <h3 className="section-title">Health (ABHA)</h3>
             </div>
             <p className="text-xs text-muted-foreground mb-3 flex items-center gap-2">
-              ABHA ID: {revealed.abha ? citizen.abhaId : maskSensitive(citizen.abhaId)}
+              <Heart className="h-3.5 w-3.5" /> ABHA ID: {revealed.abha ? citizen.abhaId : maskIdentifier(citizen.abhaId)}
               {!revealed.abha && (
                 <button
                   type="button"
@@ -265,16 +331,19 @@ const Dashboard = () => {
               </div>
               <div className="grid grid-cols-3 gap-2 text-center">
                 <div className={`rounded-lg p-2 ${lowElectricity ? "bg-destructive/15" : "bg-success/20"}`}>
-                  <p className="text-[10px] text-muted-foreground">Electricity</p>
+                  <p className="text-[10px] text-muted-foreground flex items-center justify-center gap-1"><Zap className="h-3 w-3" />Electricity</p>
                   <p className={`font-bold ${lowElectricity ? "text-destructive" : "text-success"}`}>₹{utilityBalances.electricity}</p>
+                  <p className="text-[10px] text-muted-foreground">{getDaysRemaining(utilityBalances.electricity, "electricity")} days left</p>
                 </div>
                 <div className="rounded-lg bg-muted p-2">
-                  <p className="text-[10px] text-muted-foreground">Water</p>
+                  <p className="text-[10px] text-muted-foreground flex items-center justify-center gap-1"><Droplets className="h-3 w-3" />Water</p>
                   <p className="font-bold text-foreground">₹{utilityBalances.water}</p>
+                  <p className="text-[10px] text-muted-foreground">{getDaysRemaining(utilityBalances.water, "water")} days left</p>
                 </div>
                 <div className="rounded-lg bg-muted p-2">
-                  <p className="text-[10px] text-muted-foreground">Gas</p>
+                  <p className="text-[10px] text-muted-foreground flex items-center justify-center gap-1"><Flame className="h-3 w-3" />Gas</p>
                   <p className="font-bold text-foreground">₹{utilityBalances.gas}</p>
+                  <p className="text-[10px] text-muted-foreground">{getDaysRemaining(utilityBalances.gas, "gas")} days left</p>
                 </div>
               </div>
             </div>
@@ -356,6 +425,25 @@ const Dashboard = () => {
         />
       )}
 
+      <button
+        type="button"
+        className="fixed bottom-5 right-5 z-40 rounded-full bg-secondary p-4 shadow-xl hover:brightness-110"
+        aria-label="Open Bhashini voice walkthrough"
+        onClick={() => {
+          setIsVoiceGuideOpen(true);
+          speakText(voiceGuideText);
+        }}
+      >
+        <Mic className="h-7 w-7 text-secondary-foreground" />
+      </button>
+
+      {isVoiceGuideOpen && (
+        <AIVoiceModal
+          text={voiceGuideText}
+          onClose={() => setIsVoiceGuideOpen(false)}
+        />
+      )}
+
       {payingBill && (
         <PaymentConfirm
           bill={payingBill}
@@ -368,11 +456,11 @@ const Dashboard = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/50 backdrop-blur-sm">
           <div className="w-full max-w-sm rounded-2xl bg-card p-6 text-center">
             <Fingerprint className="mx-auto h-12 w-12 text-primary animate-pulse mb-3" />
-            <p className="font-semibold text-foreground">Verify Biometric</p>
+            <p className="font-semibold text-foreground">Use FaceID or Fingerprint</p>
             <p className="text-xs text-muted-foreground mt-1">
               {verifyingField === "document"
-                ? `Scanning fingerprint to ${pendingDocumentAction?.action || "access"} document...`
-                : "Scanning fingerprint for secure reveal..."}
+                ? `Use native biometric authentication to ${pendingDocumentAction?.action || "access"} document...`
+                : "Use native biometric authentication for secure reveal..."}
             </p>
             <div className="mt-4 h-2 rounded-full bg-muted overflow-hidden">
               <div className="h-full w-full bg-primary animate-[pulse_1.2s_ease-in-out_infinite]" />

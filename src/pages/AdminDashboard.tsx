@@ -16,6 +16,14 @@ import {
   deleteCitizen,
   updateCitizen,
 } from "@/lib/dataService";
+import {
+  clearAdminAuthState,
+  isAdminSecondFactorVerified,
+  isAdminSessionActive,
+  setAdminSecondFactor,
+  setActiveRole,
+} from "@/lib/auth";
+import { maskIdentifier } from "@/lib/security";
 
 const ADMIN_SECONDARY_PIN = "1234";
 
@@ -62,13 +70,12 @@ const AdminDashboard = () => {
 
   // Check authentication on mount
   useEffect(() => {
-    const adminAuth = localStorage.getItem("adminAuth");
-    const admin2FA = localStorage.getItem("admin2FA");
-    if (adminAuth !== "true") {
+    if (!isAdminSessionActive()) {
       navigate("/admin-login");
     } else {
       setIsAuthenticated(true);
-      setIsPinVerified(admin2FA === "true");
+      setIsPinVerified(isAdminSecondFactorVerified());
+      setActiveRole("admin");
     }
 
     // subscribe to firestore citizen list
@@ -107,16 +114,14 @@ const AdminDashboard = () => {
   }, [navigate]);
 
   const handleLogout = () => {
-    localStorage.removeItem("adminAuth");
-    localStorage.removeItem("admin2FA");
-    localStorage.removeItem("adminLoginTime");
+    clearAdminAuthState();
     toast.success("Logged out successfully");
     navigate("/");
   };
 
   const verifySecondaryPin = () => {
     if (secondaryPin === ADMIN_SECONDARY_PIN) {
-      localStorage.setItem("admin2FA", "true");
+      setAdminSecondFactor(true);
       setIsPinVerified(true);
       toast.success("Secondary PIN verified");
       return;
@@ -653,7 +658,7 @@ const handleAddCitizen = async (e: React.FormEvent) => {
                   </div>
                   <div>
                     <p className="text-sm text-slate-600">Aadhaar</p>
-                    <p className="font-mono">{selectedCitizen.aadhaar}</p>
+                    <p className="font-mono">{maskIdentifier(selectedCitizen.aadhaar)}</p>
                   </div>
                   <div>
                     <p className="text-sm text-slate-600">Phone</p>
@@ -669,7 +674,7 @@ const handleAddCitizen = async (e: React.FormEvent) => {
                   </div>
                   <div>
                     <p className="text-sm text-slate-600">ABHA ID</p>
-                    <p className="font-mono">{selectedCitizen.abhaId}</p>
+                    <p className="font-mono">{maskIdentifier(selectedCitizen.abhaId)}</p>
                   </div>
                 </div>
 

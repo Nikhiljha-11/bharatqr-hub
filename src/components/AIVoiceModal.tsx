@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Volume2, X } from "lucide-react";
+import { speakText } from "@/lib/speech";
 
 interface Props {
   text: string;
@@ -11,6 +12,8 @@ const AIVoiceModal = ({ text, onClose }: Props) => {
   const [done, setDone] = useState(false);
 
   useEffect(() => {
+    speakText(text);
+
     let i = 0;
     const interval = setInterval(() => {
       if (i < text.length) {

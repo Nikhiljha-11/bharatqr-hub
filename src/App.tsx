@@ -14,6 +14,7 @@ import Documents from "./pages/Documents";
 import AdminLogin from "./pages/AdminLogin";
 import AdminDashboard from "./pages/AdminDashboard";
 import NotFound from "./pages/NotFound";
+import { isAdminSessionActive } from "./lib/auth";
 
 const queryClient = new QueryClient();
 
@@ -22,6 +23,13 @@ const HomeWithDeepLink = () => {
   const id = searchParams.get("id");
   if (id) return <Navigate to={`/citizen/${id}`} replace />;
   return <Index />;
+};
+
+const RequireAdmin = ({ children }: { children: JSX.Element }) => {
+  if (!isAdminSessionActive()) {
+    return <Navigate to="/admin-login" replace />;
+  }
+  return children;
 };
 
 const App = () => (
@@ -39,7 +47,14 @@ const App = () => (
           <Route path="/schemes" element={<Schemes />} />
           <Route path="/documents" element={<Documents />} />
           <Route path="/admin-login" element={<AdminLogin />} />
-          <Route path="/admin-dashboard" element={<AdminDashboard />} />
+          <Route
+            path="/admin-dashboard"
+            element={(
+              <RequireAdmin>
+                <AdminDashboard />
+              </RequireAdmin>
+            )}
+          />
           <Route path="/dashboard/:qrId" element={<Dashboard />} />
           <Route path="/citizen/:qrId" element={<Dashboard />} />
           <Route path="*" element={<NotFound />} />

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Lock, ArrowLeft } from "lucide-react";
 import Header from "@/components/Header";
@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
+import { isAdminSessionActive, setAdminSession, setActiveRole, setAdminSecondFactor } from "@/lib/auth";
 
 // Hardcoded admin credentials (in production, use a backend)
 const ADMIN_USERNAME = "admin";
@@ -18,6 +19,12 @@ const AdminLogin = () => {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
+  useEffect(() => {
+    if (isAdminSessionActive()) {
+      navigate("/admin-dashboard");
+    }
+  }, [navigate]);
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -25,9 +32,9 @@ const AdminLogin = () => {
     // Simulate authentication delay
     setTimeout(() => {
       if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
-        // Store authentication token
-        localStorage.setItem("adminAuth", "true");
-        localStorage.setItem("adminLoginTime", new Date().toISOString());
+        setAdminSession(true);
+        setAdminSecondFactor(false);
+        setActiveRole("admin");
         toast.success("Login successful! Welcome Admin.");
         navigate("/admin-dashboard");
       } else {

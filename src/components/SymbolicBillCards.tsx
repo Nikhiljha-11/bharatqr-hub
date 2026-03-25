@@ -1,9 +1,10 @@
-import { Lightbulb, Droplets, Flame, Smartphone, CheckCircle2, AlertTriangle, Volume2 } from "lucide-react";
+import { Zap, Droplets, Flame, Smartphone, CheckCircle2, AlertTriangle, Volume2, Lightbulb } from "lucide-react";
 import type { BillItem } from "@/types";
 import { getAlertSpeechSummary, speakText } from "@/lib/speech";
 
 const iconMap: Record<string, typeof Lightbulb> = {
-  Lightbulb,
+  Lightbulb: Zap,
+  Zap,
   Droplets,
   Flame,
   Smartphone,

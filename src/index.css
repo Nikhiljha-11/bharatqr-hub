@@ -83,6 +83,15 @@
   * {
     @apply border-border;
   }
+  button,
+  a,
+  input,
+  select,
+  textarea,
+  [role="button"] {
+    min-width: 48px;
+    min-height: 48px;
+  }
   body {
     @apply bg-background text-foreground font-sans;
     font-family: 'Public Sans', system-ui, sans-serif;
@@ -165,8 +174,8 @@
     100% { background-position: 200% 0; }
   }
   .animate-shimmer {
-    background: linear-gradient(90deg, transparent, hsl(219 55% 24% / 0.05), transparent);
+    background: linear-gradient(90deg, hsl(var(--muted) / 0.5) 25%, hsl(var(--accent) / 0.7) 50%, hsl(var(--muted) / 0.5) 75%);
     background-size: 200% 100%;
-    animation: shimmer 2s infinite;
+    animation: shimmer 1.4s linear infinite;
   }
 }

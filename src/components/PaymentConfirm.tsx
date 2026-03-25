@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { X } from "lucide-react";
 import type { BillItem } from "@/types";
+import { toast } from "sonner";
+import { getOfflinePaymentCount, queueOfflinePayment } from "@/lib/offlinePayments";
 
 interface Props {
   bill: BillItem;
@@ -10,6 +12,34 @@ interface Props {
 
 const PaymentConfirm = ({ bill, qrId, onClose }: Props) => {
   const [processing, setProcessing] = useState(false);
+
+  const url = `https://www.bharat-connect.com/?qrId=${encodeURIComponent(qrId)}&bill=${encodeURIComponent(bill.label)}&amount=${bill.amount}`;
+
+  const handlePayment = async () => {
+    setProcessing(true);
+
+    if (!navigator.onLine) {
+      const count = queueOfflinePayment({
+        qrId,
+        billLabel: bill.label,
+        amount: bill.amount,
+        url,
+      });
+      setProcessing(false);
+      toast.warning(`No connectivity. Payment queued securely (${count} pending).`);
+      onClose();
+      return;
+    }
+
+    const queued = getOfflinePaymentCount();
+    if (queued > 0) {
+      toast.info(`${queued} queued payment${queued > 1 ? "s" : ""} will auto-execute when online.`);
+    }
+
+    window.open(url, "_blank", "noopener,noreferrer");
+    setProcessing(false);
+    onClose();
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/40 backdrop-blur-sm" onClick={onClose}>
@@ -27,19 +57,22 @@ const PaymentConfirm = ({ bill, qrId, onClose }: Props) => {
           <p className="text-xs text-muted-foreground mt-1">Due: {bill.dueDate}</p>
         </div>
 
-        <button
-          onClick={async () => {
-            setProcessing(true);
-            const url = `https://www.bharat-connect.com/?qrId=${encodeURIComponent(qrId)}&bill=${encodeURIComponent(bill.label)}&amount=${bill.amount}`;
-            window.open(url, "_blank", "noopener,noreferrer");
-            setProcessing(false);
-            onClose();
-          }}
-          disabled={processing}
-          className="w-full rounded-xl bg-success py-4 text-lg font-bold text-success-foreground shadow-lg hover:brightness-110 active:scale-95 transition-all disabled:opacity-70"
-        >
-          {processing ? "Redirecting..." : "Proceed to Bharat Connect"}
-        </button>
+        {processing ? (
+          <div className="space-y-3">
+            <div className="h-4 w-full rounded-md animate-shimmer" />
+            <div className="h-4 w-3/4 rounded-md animate-shimmer" />
+            <div className="h-12 w-full rounded-xl bg-success/20 animate-shimmer" />
+            <p className="text-xs text-muted-foreground text-center">Processing securely...</p>
+          </div>
+        ) : (
+          <button
+            onClick={handlePayment}
+            disabled={processing}
+            className="w-full rounded-xl bg-success py-4 text-lg font-bold text-success-foreground shadow-lg hover:brightness-110 active:scale-95 transition-all disabled:opacity-70"
+          >
+            Proceed to Bharat Connect
+          </button>
+        )}
       </div>
     </div>
   );

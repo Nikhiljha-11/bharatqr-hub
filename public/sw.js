@@ -1,4 +1,4 @@
-const CACHE_NAME = "bharatqr-shell-v1";
+const CACHE_NAME = "bharatqr-shell-v2";
 const APP_SHELL = ["/", "/index.html", "/scan", "/manifest.webmanifest"];
 
 self.addEventListener("install", (event) => {
@@ -25,22 +25,45 @@ self.addEventListener("fetch", (event) => {
   }
 
   if (event.request.mode === "navigate") {
-    event.respondWith(fetch(event.request).catch(() => caches.match("/index.html")));
+    event.respondWith(
+      caches.match(event.request).then((cached) => {
+        const network = fetch(event.request)
+          .then((response) => {
+            const responseClone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseClone));
+            return response;
+          })
+          .catch(() => caches.match("/index.html"));
+
+        return cached || network;
+      }),
+    );
     return;
   }
 
   event.respondWith(
     caches.match(event.request).then((cached) => {
-      if (cached) {
-        return cached;
-      }
-      return fetch(event.request)
+      const network = fetch(event.request)
         .then((response) => {
           const responseClone = response.clone();
           caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseClone));
           return response;
         })
-        .catch(() => caches.match("/index.html"));
+        .catch(() => cached || caches.match("/index.html"));
+
+      return cached || network;
+    }),
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
+      if (clients.length > 0) {
+        return clients[0].focus();
+      }
+      return self.clients.openWindow("/");
     }),
   );
 });
