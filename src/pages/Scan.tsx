@@ -31,6 +31,60 @@ const getScanSpeechText = (key: "identified" | "notFound" | "identityError", cit
   return "Identity not found. Please contact nearest help desk.";
 };
 
+const BQR_ID_PATTERN = /BQR_[A-Z]+_\d+/i;
+const UUID_PATTERN = /[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/i;
+
+const extractCitizenIdFromQr = (rawValue: string): string | null => {
+  const raw = rawValue.trim();
+  if (!raw) {
+    return null;
+  }
+
+  const bqrMatch = raw.match(BQR_ID_PATTERN);
+  if (bqrMatch?.[0]) {
+    return bqrMatch[0].toUpperCase();
+  }
+
+  const uuidMatch = raw.match(UUID_PATTERN);
+  if (uuidMatch?.[0]) {
+    return uuidMatch[0];
+  }
+
+  // Support QR payloads that encode route links like /dashboard/:id or /citizen/:id.
+  try {
+    const url = new URL(raw);
+    const fromQuery = url.searchParams.get("id")?.trim();
+    if (fromQuery) {
+      const bqrFromQuery = fromQuery.match(BQR_ID_PATTERN)?.[0];
+      if (bqrFromQuery) {
+        return bqrFromQuery.toUpperCase();
+      }
+      const uuidFromQuery = fromQuery.match(UUID_PATTERN)?.[0];
+      if (uuidFromQuery) {
+        return uuidFromQuery;
+      }
+    }
+
+    const parts = url.pathname.split("/").filter(Boolean);
+    const routeIndex = parts.findIndex((part) => part === "dashboard" || part === "citizen");
+    if (routeIndex >= 0 && parts[routeIndex + 1]) {
+      const candidate = decodeURIComponent(parts[routeIndex + 1]).trim();
+      const bqrFromPath = candidate.match(BQR_ID_PATTERN)?.[0];
+      if (bqrFromPath) {
+        return bqrFromPath.toUpperCase();
+      }
+      const uuidFromPath = candidate.match(UUID_PATTERN)?.[0];
+      if (uuidFromPath) {
+        return uuidFromPath;
+      }
+    }
+  } catch {
+    // Non-URL payloads are expected for many scanners.
+  }
+
+  return null;
+};
+
 const Scan = () => {
   const navigate = useNavigate();
   const [scanning, setScanning] = useState(false);
@@ -123,20 +177,18 @@ const Scan = () => {
               return;
             }
 
-            const raw = (codes[0].rawValue || "").trim();
-            const isBharatQR = /^BQR_[A-Z]+_\d+$/i.test(raw);
-            const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(raw);
-            if (!isBharatQR && !isUuid) {
+            const extractedId = extractCitizenIdFromQr(codes[0].rawValue || "");
+            if (!extractedId) {
               return;
             }
 
             setScanning(true);
             setError(false);
 
-            const citizen = await getCitizen(raw);
+            const citizen = await getCitizen(extractedId);
             if (citizen) {
               speakText(getScanSpeechText("identified", citizen.name));
-              navigate(`/citizen/${raw}`);
+              navigate(`/citizen/${extractedId}`);
               return;
             }
 
